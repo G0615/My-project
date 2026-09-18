@@ -1,0 +1,177 @@
+using UnityEngine;
+
+namespace CelebrationDemo
+{
+    /// <summary>
+    /// A stable interaction point. It owns only presentation; all decisions are
+    /// made by DemoSession and forwarded here by DemoRuntime.
+    /// </summary>
+    [DisallowMultipleComponent]
+    public sealed class TargetView : MonoBehaviour
+    {
+        public TargetSpec Spec;
+        public string DisplayName;
+        public Transform FeedbackAnchor;
+        public float InteractionRadius = 2.4f;
+
+        [SerializeField] GameObject highlightVisual;
+
+        float toolAngle;
+
+        void Awake()
+        {
+            CacheChildren();
+        }
+
+        void CacheChildren()
+        {
+            if (FeedbackAnchor == null)
+            {
+                var anchor = transform.Find("FeedbackAnchor");
+                if (anchor != null) FeedbackAnchor = anchor;
+            }
+            if (highlightVisual == null)
+            {
+                var highlight = transform.Find("Highlight");
+                if (highlight != null) highlightVisual = highlight.gameObject;
+            }
+        }
+
+        public void SetHighlighted(bool value)
+        {
+            if (highlightVisual == null) CacheChildren();
+            if (highlightVisual != null) highlightVisual.SetActive(value);
+        }
+
+        public void ApplyState(DemoSession session)
+        {
+            if (session == null || Spec == null) return;
+
+            switch (Spec.Kind)
+            {
+                case TargetKind.CakeFruit:
+                    ApplyCakeFruit(session);
+                    break;
+                case TargetKind.CakeCream:
+                    ApplyCakeCream(session);
+                    break;
+                case TargetKind.CutStation:
+                    ApplyStation(session.CutStation, false);
+                    break;
+                case TargetKind.WhipStation:
+                    ApplyStation(session.WhipStation, true);
+                    break;
+                case TargetKind.Trophy:
+                    ApplyTrophy(session);
+                    break;
+            }
+        }
+
+        void ApplyCakeFruit(DemoSession session)
+        {
+            int style = ReadCakeValue(session.Cake != null ? session.Cake.FruitStyles : null, Spec.Index);
+            var decoration = transform.Find("FruitDecoration");
+            if (decoration != null) decoration.gameObject.SetActive(style > 0);
+            SetColor(decoration, FruitColor(style));
+        }
+
+        void ApplyCakeCream(DemoSession session)
+        {
+            int style = ReadCakeValue(session.Cake != null ? session.Cake.CreamColors : null, Spec.Index);
+            var surface = transform.Find("CreamSurface");
+            if (surface != null) surface.gameObject.SetActive(true);
+            SetColor(surface, CreamColor(style));
+        }
+
+        void ApplyStation(StationState station, bool whisk)
+        {
+            if (station == null) return;
+            var progress = transform.Find("ProgressBar");
+            if (progress != null)
+            {
+                float value = Mathf.Clamp01(station.Progress);
+                progress.localScale = new Vector3(Mathf.Max(0.02f, value), 1f, 1f);
+                progress.localPosition = new Vector3((value - 1f) * 0.5f, progress.localPosition.y,
+                    progress.localPosition.z);
+            }
+
+            var tool = transform.Find("Tool");
+            if (tool != null && station.IsRunning)
+            {
+                toolAngle += Time.deltaTime * (whisk ? 420f : 250f);
+                tool.localRotation = Quaternion.Euler(0f, toolAngle, whisk ? 18f : 0f);
+            }
+            var participants = transform.Find("Participants");
+            if (participants != null)
+            {
+                int count = station.ParticipantIds == null ? 0 : station.ParticipantIds.Count;
+                participants.localScale = new Vector3(1f, 1f, Mathf.Clamp01(count / 3f));
+            }
+        }
+
+        void ApplyTrophy(DemoSession session)
+        {
+            ActorState actor = session.GetActor(Spec.OwnerActorId);
+            bool placed = actor != null && actor.TrophyStatus == TrophyStatus.Placed;
+            var trophy = transform.Find("TrophyVisual");
+            if (trophy != null) trophy.gameObject.SetActive(placed);
+            Color ownerColor = ActorColor(Spec.OwnerActorId);
+            SetColor(trophy, ownerColor);
+        }
+
+        static int ReadCakeValue(int[] values, int index)
+        {
+            return values != null && index >= 0 && index < values.Length ? values[index] : 0;
+        }
+
+        static Color FruitColor(int style)
+        {
+            switch (Mathf.Abs(style) % 4)
+            {
+                case 1: return new Color(0.95f, 0.16f, 0.1f);
+                case 2: return new Color(1f, 0.56f, 0.08f);
+                case 3: return new Color(0.95f, 0.84f, 0.1f);
+                default: return new Color(0.68f, 0.12f, 0.08f);
+            }
+        }
+
+        static Color CreamColor(int style)
+        {
+            switch (Mathf.Abs(style) % 4)
+            {
+                case 1: return new Color(1f, 0.46f, 0.7f);
+                case 2: return new Color(0.56f, 0.82f, 1f);
+                case 3: return new Color(0.75f, 0.5f, 1f);
+                default: return new Color(0.98f, 0.93f, 0.78f);
+            }
+        }
+
+        static Color ActorColor(int actorId)
+        {
+            switch (actorId)
+            {
+                case 1: return new Color(0.95f, 0.18f, 0.17f);
+                case 2: return new Color(1f, 0.82f, 0.12f);
+                case 3: return new Color(0.16f, 0.48f, 1f);
+                default: return Color.white;
+            }
+        }
+
+        static void SetColor(Transform root, Color color)
+        {
+            if (root == null) return;
+            var renderers = root.GetComponentsInChildren<Renderer>(true);
+            foreach (var renderer in renderers)
+            {
+                if (renderer == null || renderer.sharedMaterial == null) continue;
+                // Each generated visual has its own material. Use an instance so
+                // a state change cannot recolor another interaction point, and
+                // write both common color property names for URP and fallback
+                // built-in shaders.
+                var material = renderer.material;
+                if (material.HasProperty("_BaseColor")) material.SetColor("_BaseColor", color);
+                if (material.HasProperty("_Color")) material.SetColor("_Color", color);
+            }
+        }
+    }
+}

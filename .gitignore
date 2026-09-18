@@ -105,3 +105,10 @@ InitTestScene*.unity*
 
 # Auto-generated scenes by play mode tests
 /[Aa]ssets/[Ii]nit[Tt]est[Ss]cene*.unity*
+
+# Local celebration rule-check output; keep the maintained test project source.
+/core-check.dll
+/core-smoke.exe
+/Tests/**/bin/
+/Tests/**/obj/
+!/Tests/CoreSmoke/CoreSmoke.csproj
