@@ -82,7 +82,7 @@ namespace CelebrationDemo
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
             Selection.activeGameObject = runtimeObject;
-            Debug.Log("Created persistent CelebrationPrototype scene with 3 actors and 23 interaction targets.");
+            Debug.Log("Created persistent CelebrationPrototype scene with 3 actors and 24 interaction targets.");
         }
 
         static GameObject FindRoot(Scene scene, string name)
@@ -220,6 +220,18 @@ namespace CelebrationDemo
             CreateSign(parent, "Home 3 Sign", homeThree, Vector3.back, m.Blue, "3号家园");
             CreateSign(parent, "Shop Sign", shop, Vector3.back, m.Yellow, "鸡蛋商店");
 
+            // Keep the authored fruit trees near the doors for the three
+            // playable homes, then add a few non-interactive trees outside
+            // each house so the corners read as lived-in yards.  Only the
+            // trunks collide; leaves and fruit stay visual so they do not
+            // create invisible walls around the doors.
+            CreateDecorativeTree(parent, "Home 1 Outer Tree A", new Vector3(-36.5f, -0.08f, 26.2f), m.Red, m);
+            CreateDecorativeTree(parent, "Home 1 Outer Tree B", new Vector3(-37.2f, -0.08f, 20.4f), m.Red, m);
+            CreateDecorativeTree(parent, "Home 2 Outer Tree A", new Vector3(36.5f, -0.08f, 26.2f), m.Yellow, m);
+            CreateDecorativeTree(parent, "Home 2 Outer Tree B", new Vector3(37.2f, -0.08f, 20.4f), m.Yellow, m);
+            CreateDecorativeTree(parent, "Home 3 Outer Tree A", new Vector3(-36.5f, -0.08f, -26.4f), m.Orange, m);
+            CreateDecorativeTree(parent, "Home 3 Outer Tree B", new Vector3(-37.2f, -0.08f, -20.4f), m.Orange, m);
+
             Vector3 cakeCenter = new Vector3(0f, 1.2f, 1.2f * WorldScale);
             Vector3 cakeOrigin = new Vector3(cakeCenter.x, 0.05f, cakeCenter.z);
             // Build the cake as six independent 60-degree sectors. The six
@@ -262,6 +274,21 @@ namespace CelebrationDemo
                 new Vector3(4.8f, 0.4f, 0.24f), material);
             sign.transform.rotation = Quaternion.LookRotation(direction, Vector3.up);
             sign.name = name + " [" + label + "]";
+        }
+
+        static void CreateDecorativeTree(Transform parent, string name, Vector3 position, Material fruitMaterial, MaterialSet m)
+        {
+            var tree = new GameObject(name);
+            tree.transform.SetParent(parent, false);
+            tree.transform.position = position;
+            CreateVisual("Trunk", PrimitiveType.Cylinder, tree.transform, new Vector3(0f, .65f, 0f),
+                new Vector3(.25f, .75f, .25f), m.Wood, true);
+            CreateVisual("Leaves", PrimitiveType.Sphere, tree.transform, new Vector3(0f, 1.65f, 0f),
+                new Vector3(1.2f, 1f, 1.2f), m.Leaf, false);
+            for (int i = 0; i < 3; i++)
+                CreateVisual("Fruit" + i, PrimitiveType.Sphere, tree.transform,
+                    new Vector3(Mathf.Cos(i * 2.1f) * .55f, 1.25f + (i % 2) * .25f, Mathf.Sin(i * 2.1f) * .55f),
+                    Vector3.one * .24f, fruitMaterial, false);
         }
 
         static void CreateZoneSign(Transform parent, string name, Vector3 position, string label, MaterialSet m)
@@ -332,7 +359,7 @@ namespace CelebrationDemo
 
         static TargetView[] BuildTargets(Transform parent, MaterialSet m)
         {
-            var targets = new TargetView[23];
+            var targets = new TargetView[24];
             int cursor = 0;
 
             // Three homes occupy three corners. Each door has a dedicated tree
@@ -344,16 +371,14 @@ namespace CelebrationDemo
             targets[cursor++] = AddFruitTreeTarget(parent, "Home 3 Orange Tree", TargetKind.HomeOrange,
                 "home_orange", new Vector3(-24.6f, -0.08f, -26.3f), "领取橘子", m.Orange, m, "Orange");
 
-            // Shop egg point is in the fourth corner.
-            targets[cursor++] = AddTarget(parent, "Shop Eggs", TargetKind.ShopEgg, "shop_egg", 0, 0,
-                new Vector3(24.6f, 0f, -26.3f), "购买鸡蛋", 1.65f, m.Yellow, m);
-            var eggTarget = targets[cursor - 1].transform;
-            CreateVisual("Counter", PrimitiveType.Cube, eggTarget, new Vector3(0f, .35f, 0f),
-                new Vector3(2.4f, .7f, 1.4f), m.Wood, false);
-            for (int i = 0; i < 4; i++)
-                CreateVisual("Egg" + i, PrimitiveType.Sphere, eggTarget,
-                    new Vector3((i % 2) * .5f - .25f, .95f, (i / 2) * .45f - .22f),
-                    new Vector3(.32f, .42f, .32f), m.Egg, false);
+            // The shop has one usable egg rack on each side of its south-facing
+            // door. Keeping both as real targets makes the two wall displays
+            // equivalent ways to buy eggs and avoids a decorative-only dead
+            // end when the player approaches from either side.
+            targets[cursor++] = AddEggShopTarget(parent, "Shop Eggs Left", "shop_egg_left",
+                new Vector3(26.6f, 0f, -26.3f), "Shop Egg Rack Left", m);
+            targets[cursor++] = AddEggShopTarget(parent, "Shop Eggs Right", "shop_egg_right",
+                new Vector3(33.4f, 0f, -26.3f), "Shop Egg Rack Right", m);
 
             targets[cursor++] = AddPileTarget(parent, "Apple Pile", TargetKind.FruitPile, "apple_pile",
                 new Vector3(-11f, 0.55f, 10.5f), "苹果堆", m.Red, m);
@@ -369,13 +394,13 @@ namespace CelebrationDemo
                 new Vector3(11f, 0.48f, -6.2f), "奶油堆", m.Cream, m);
 
             targets[cursor++] = AddStationTarget(parent, "Cut Station", TargetKind.CutStation, "cut",
-                new Vector3(-8f, 0.65f, -2.2f), "切水果", false, m);
+                new Vector3(-8f, 0.65f, 4.8f), "切水果", false, m);
             targets[cursor++] = AddStationTarget(parent, "Whip Station", TargetKind.WhipStation, "whip",
-                new Vector3(-4f, 0.65f, -2.2f), "打发奶油", true, m);
+                new Vector3(-4f, 0.65f, 4.8f), "打发奶油", true, m);
             targets[cursor++] = AddChopsticksTarget(parent, m);
 
             CreateZoneSign(parent, "Donation Zone Sign", new Vector3(-5f, 0f, 12.5f), "捐赠区", m);
-            CreateZoneSign(parent, "Processing Zone Sign", new Vector3(-6f, 0f, -4.1f), "加工区", m);
+            CreateZoneSign(parent, "Processing Zone Sign", new Vector3(-6f, 0f, 6.4f), "加工区", m);
             CreateZoneSign(parent, "Finished Zone Sign", new Vector3(9f, 0f, -7.8f), "成品区", m);
             CreateZoneSign(parent, "Trading Zone Sign", new Vector3(11f, 0f, 11.2f), "交易区", m);
 
@@ -394,12 +419,12 @@ namespace CelebrationDemo
             }
 
             targets[cursor++] = AddCelebrationTarget(parent, m);
-            // Trees sit on the side of each home nearest the map centre. Put
-            // the trophy on the opposite side so the two authored points do
-            // not overlap the tree, house body, or doorway.
-            targets[cursor++] = AddTrophyTarget(parent, 1, new Vector3(-35.5f, 0f, 19.7f), m);
-            targets[cursor++] = AddTrophyTarget(parent, 2, new Vector3(35.5f, 0f, 19.7f), m);
-            targets[cursor++] = AddTrophyTarget(parent, 3, new Vector3(-35.5f, 0f, -26.3f), m);
+            // Put each trophy just in front of the south-facing house wall,
+            // beside the door.  The three authored points mirror the first
+            // home's placement while leaving the doorway clear.
+            targets[cursor++] = AddTrophyTarget(parent, 1, new Vector3(-33f, 0f, 19.45f), m);
+            targets[cursor++] = AddTrophyTarget(parent, 2, new Vector3(33f, 0f, 19.45f), m);
+            targets[cursor++] = AddTrophyTarget(parent, 3, new Vector3(-33f, 0f, -26.55f), m);
 
             if (cursor != targets.Length)
                 Debug.LogError("CelebrationSceneBuilder generated " + cursor + " targets; expected " + targets.Length + ".");
@@ -419,6 +444,21 @@ namespace CelebrationDemo
                 CreateVisual(fruitPrefix + i, PrimitiveType.Sphere, tree,
                     new Vector3(Mathf.Cos(i * 2.1f) * .55f, 1.25f + (i % 2) * .25f, Mathf.Sin(i * 2.1f) * .55f),
                     Vector3.one * .24f, fruitMaterial, false);
+            return target;
+        }
+
+        static TargetView AddEggShopTarget(Transform parent, string name, string id, Vector3 position,
+            string rackName, MaterialSet m)
+        {
+            var target = AddTarget(parent, name, TargetKind.ShopEgg, id, 0, 0,
+                position, "购买鸡蛋", 1.65f, m.Yellow, m);
+            var root = target.transform;
+            CreateVisual(rackName, PrimitiveType.Cube, root, new Vector3(0f, .35f, 0f),
+                new Vector3(2.4f, .7f, 1.4f), m.Wood, false);
+            for (int i = 0; i < 4; i++)
+                CreateVisual("Egg" + i, PrimitiveType.Sphere, root,
+                    new Vector3((i % 2) * .5f - .25f, .95f, (i / 2) * .45f - .22f),
+                    new Vector3(.32f, .42f, .32f), m.Egg, false);
             return target;
         }
 
