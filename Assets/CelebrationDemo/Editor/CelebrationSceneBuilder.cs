@@ -24,7 +24,7 @@ namespace CelebrationDemo
         static readonly Color GroundColor = new Color(0.18f, 0.28f, 0.30f);
         static readonly Color PlazaColor = new Color(0.44f, 0.57f, 0.58f);
         static readonly Color WoodColor = new Color(0.45f, 0.24f, 0.11f);
-        static readonly Color Cream = new Color(0.98f, 0.88f, 0.68f);
+        static readonly Color Cream = new Color(0.98f, 0.93f, 0.78f);
 
         [MenuItem("Tools/Celebration Demo/Create Celebration Prototype")]
         public static void Create()
@@ -133,6 +133,9 @@ namespace CelebrationDemo
                 Egg = Material("Egg", new Color(0.98f, 0.92f, 0.72f)),
                 Cake = Material("Cake", new Color(0.9f, 0.66f, 0.38f)),
                 Cream = Material("Cream", Cream),
+                CreamPink = Material("Cream Pink", new Color(1f, 0.46f, 0.7f)),
+                CreamBlue = Material("Cream Blue", new Color(0.56f, 0.82f, 1f)),
+                CreamPurple = Material("Cream Purple", new Color(0.75f, 0.5f, 1f)),
                 Highlight = Material("Highlight", new Color(1f, 0.88f, 0.18f)),
                 Tool = Material("Tool", new Color(0.42f, 0.46f, 0.5f)),
                 Celebration = Material("Celebration", new Color(0.75f, 0.2f, 0.82f))
@@ -391,10 +394,23 @@ namespace CelebrationDemo
             CreateVisual("Basket", PrimitiveType.Cylinder, root, new Vector3(0f, .35f, 0f),
                 new Vector3(1.55f, .35f, 1.55f), m.Wood, false);
             for (int i = 0; i < 5; i++)
-                CreateVisual("Item" + i, kind == TargetKind.EggPile ? PrimitiveType.Sphere : PrimitiveType.Sphere,
+            {
+                Material itemMaterial = pileMaterial;
+                string itemName = "Item" + i;
+                if (kind == TargetKind.CreamPile)
+                {
+                    // Match the four colour states used by F on cake cream
+                    // regions, so the public cream pile reads as the same
+                    // resource players are about to apply.
+                    Material[] creamPalette = { m.CreamPink, m.CreamBlue, m.CreamPurple, m.Cream };
+                    itemMaterial = creamPalette[i % creamPalette.Length];
+                    itemName = "Cream Palette " + (i + 1);
+                }
+                CreateVisual(itemName, PrimitiveType.Sphere,
                     root, new Vector3(Mathf.Cos(i * 1.25f) * .5f, .8f + (i % 2) * .18f,
                     Mathf.Sin(i * 1.25f) * .5f), kind == TargetKind.EggPile ? new Vector3(.36f, .48f, .36f) : Vector3.one * .35f,
-                    pileMaterial, false);
+                    itemMaterial, false);
+            }
             return target;
         }
 
@@ -678,6 +694,9 @@ namespace CelebrationDemo
             public Material Egg;
             public Material Cake;
             public Material Cream;
+            public Material CreamPink;
+            public Material CreamBlue;
+            public Material CreamPurple;
             public Material Highlight;
             public Material Tool;
             public Material Celebration;

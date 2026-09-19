@@ -40,7 +40,8 @@ namespace CelebrationDemo
         {
             var text = File.ReadAllText(ScenePath);
             return text.Contains("Banana Pile") && text.Contains("InteractionCollider") &&
-                text.Contains("Home 3 Orange Tree") && text.Contains("Cake Sector 1 Base");
+                text.Contains("Home 3 Orange Tree") && text.Contains("Cake Sector 1 Base") &&
+                text.Contains("Cream Palette 1");
         }
     }
 }
