@@ -466,8 +466,11 @@ namespace CelebrationDemo
                 label.title.text = FormatTargetPrompt(target, offer);
                 label.anchor = TargetAnchor(target);
                 var showPrompt = target == runtime.CurrentTarget && executable;
-                var showProgress = showPrompt && station != null && station.IsRunning;
-                label.root.SetActive(showPrompt);
+                // A running station owns its progress presentation. Keep it
+                // visible even when the active actor switches or walks away;
+                // only the F prompt follows the current target selection.
+                var showProgress = station != null && station.IsRunning;
+                label.root.SetActive(showPrompt || showProgress);
                 label.promptRoot.SetActive(showPrompt && !showProgress);
                 if (showProgress)
                     RefreshStationWorldProgress(label, station);

@@ -353,7 +353,7 @@ namespace CelebrationDemo
                 bool fruit = (i % 2) == 0;
                 targets[cursor++] = AddCakeTarget(parent, fruit ? "Cake Fruit " + (i / 2 + 1) : "Cake Cream " + (i / 2 + 1),
                     fruit ? TargetKind.CakeFruit : TargetKind.CakeCream,
-                    fruit ? "cake_fruit_" + (i / 2) : "cake_cream_" + (i / 2), i / 2,
+                    fruit ? "cake_fruit_" + (i / 2) : "cake_cream_" + (i / 2), i / 2, i,
                     position, fruit ? "贴果切" : "抹奶油", fruit, m);
             }
 
@@ -442,30 +442,36 @@ namespace CelebrationDemo
             return target;
         }
 
-        static TargetView AddCakeTarget(Transform parent, string name, TargetKind kind, string id, int index,
+        static TargetView AddCakeTarget(Transform parent, string name, TargetKind kind, string id, int index, int sectorIndex,
             Vector3 position, string display, bool fruit, MaterialSet m)
         {
             var target = AddTarget(parent, name, kind, id, index, 0, position, display, 1.65f,
                 fruit ? m.Orange : m.Cream, m);
             var root = target.transform;
+            if (!fruit)
+            {
+                var sector = parent.Find("Cake Sector " + (sectorIndex + 1) + " Top");
+                if (sector != null) target.CakeSectorVisual = sector.gameObject;
+            }
             // The interaction root sits just outside the cake so six F zones
             // remain separated. Pull each visual half a metre inward to the
             // cake edge and lift it onto the top tier.
             Vector3 inward = new Vector3(-position.x, 0f, -(position.z - 2.4f));
             if (inward.sqrMagnitude > 0.001f) inward = inward.normalized * .45f;
             Vector3 attached = inward + Vector3.up * .42f;
-            CreateVisual("StateVisual", PrimitiveType.Cylinder, root, attached,
-                new Vector3(.74f, .05f, .74f), fruit ? m.DarkWood : m.Cream, false);
             if (fruit)
             {
+                CreateVisual("StateVisual", PrimitiveType.Cylinder, root, attached,
+                    new Vector3(.74f, .05f, .74f), m.DarkWood, false);
                 var decoration = CreateVisual("FruitDecoration", PrimitiveType.Sphere, root,
                     attached + Vector3.up * .10f, new Vector3(.42f, .25f, .42f), m.Red, false);
                 decoration.SetActive(false);
             }
             else
             {
-                CreateVisual("CreamSurface", PrimitiveType.Cylinder, root,
-                    attached + Vector3.up * .08f, new Vector3(.64f, .06f, .64f), m.Cream, false);
+                // The interactive result is the full 60-degree top sector,
+                // linked above through CakeSectorVisual. Do not add a point
+                // marker that would suggest only one spot is being frosted.
             }
             return target;
         }

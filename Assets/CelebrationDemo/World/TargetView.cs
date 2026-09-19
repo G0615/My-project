@@ -13,6 +13,9 @@ namespace CelebrationDemo
         public string DisplayName;
         public Transform FeedbackAnchor;
         public float InteractionRadius = 2.4f;
+        // For cream slots this points at the matching 60-degree cake sector.
+        // The presentation colours the whole sector rather than a small dot.
+        public GameObject CakeSectorVisual;
 
         /// <summary>
         /// Internal deterministic key used only when two targets tie during
@@ -97,9 +100,9 @@ namespace CelebrationDemo
         void ApplyCakeCream(DemoSession session)
         {
             int style = ReadCakeValue(session.Cake != null ? session.Cake.CreamColors : null, Spec.Index);
-            var surface = transform.Find("CreamSurface");
-            if (surface != null) surface.gameObject.SetActive(true);
-            SetColor(surface, CreamColor(style));
+            var sector = CakeSectorVisual != null ? CakeSectorVisual.transform : null;
+            if (sector != null) sector.gameObject.SetActive(true);
+            SetColor(sector, CreamColor(style));
         }
 
         void ApplyStation(StationState station, bool whisk)
