@@ -17,6 +17,7 @@ namespace CelebrationDemo
             ModelsHaveFrozenDefaults();
             SingleInteractionCarriesIdentityAndSequence();
             HomeFruitInteractionKeepsActorOwnershipAndCountsActions();
+            ShopEggInteractionKeepsActorOwnershipAndCountsPurchases();
             EventHistoryIsCommittedBeforeNotification();
             SharedWorkIsUniqueAndKeepsParticipants();
             SharedWorkUsesOneTwoThreePersonDurations();
@@ -109,6 +110,61 @@ namespace CelebrationDemo
             Check(!session.GetActor(1).HasDonated && !session.GetActor(2).HasDonated && !session.GetActor(3).HasDonated &&
                 !session.GetActor(1).HasEaten && !session.GetActor(2).HasEaten && !session.GetActor(3).HasEaten,
                 "home fruit claims do not create donation or stealing participation");
+        }
+
+        static void ShopEggInteractionKeepsActorOwnershipAndCountsPurchases()
+        {
+            var session = new DemoSession();
+            var target = new TargetSpec("shop-egg", TargetKind.ShopEgg);
+
+            // The same shop point is available to each currently selected actor.
+            for (var actorId = 1; actorId <= 3; actorId++)
+            {
+                var offer = session.Resolve(actorId, target);
+                Check(offer.CanExecute && offer.Label == "购买鸡蛋",
+                    "shop egg is executable for actor " + actorId);
+
+                var outcome = session.Execute(actorId, target);
+                Check(outcome.Success && outcome.ActorId == actorId && outcome.Message == "金币 -1，鸡蛋 +1",
+                    "shop egg returns the coin minus one and egg plus one result for actor " + actorId);
+            }
+
+            // Repeated F is a repeated purchase action. It appends events and keeps
+            // the displayed deltas out of persistent balance or inventory state.
+            session.Execute(2, target);
+            session.Execute(2, target);
+            Check(session.History.Count == 5, "three first purchases plus two repeated purchases are five events");
+            Check(session.GetHistory(1).Count == 1 && session.GetHistory(1)[0].ActorId == 1,
+                "actor one history keeps only actor one egg purchases");
+            Check(session.GetHistory(2).Count == 3 && session.GetHistory(2).All(item => item.ActorId == 2),
+                "actor two history counts repeated egg purchases without cross attribution");
+            Check(session.GetHistory(3).Count == 1 && session.GetHistory(3)[0].ActorId == 3,
+                "actor three history keeps only actor three egg purchases");
+
+            for (var index = 0; index < session.History.Count; index++)
+            {
+                var action = session.History[index];
+                var actorId = index < 3 ? index + 1 : 2;
+                Check(action.ActionType == "购买鸡蛋" && action.MessageKind == "已购买" &&
+                    action.ActorId == actorId && action.TargetId == target.Id,
+                    "shop egg event keeps action, actor, and target identity " + (index + 1));
+                Check(action.ActorText == "[金币]-1，[鸡蛋]+1" && action.TargetText == "已购买鸡蛋" &&
+                    action.Message.Contains("购买了[鸡蛋]×1") && action.Message.Contains("[金币]-1") &&
+                    action.Message.Contains("[鸡蛋]+1"),
+                    "shop egg event exposes human-readable purchase feedback " + (index + 1));
+                Check(action.DisplayDeltas.Length == 2 &&
+                    action.DisplayDeltas[0] == actorId + "号玩家[金币]-1" &&
+                    action.DisplayDeltas[1] == actorId + "号玩家[鸡蛋]+1" &&
+                    action.StatChanges.Length == 0 && action.EffectChange == string.Empty,
+                    "shop egg event records only the selected actor display deltas " + (index + 1));
+                Check(action.NewlyQualifiedTitles.Length == 0 && action.GrantedTitles.Length == 0 &&
+                    action.Sequence == index + 1L && action.EventId == session.ActivityId + "-" + (index + 1L),
+                    "shop egg repeated actions keep monotonic event identity without title changes " + (index + 1));
+            }
+
+            Check(!session.GetActor(1).HasDonated && !session.GetActor(2).HasDonated && !session.GetActor(3).HasDonated &&
+                !session.GetActor(1).HasEaten && !session.GetActor(2).HasEaten && !session.GetActor(3).HasEaten,
+                "shop egg purchases do not create donation or stealing participation");
         }
 
         static void EventHistoryIsCommittedBeforeNotification()
