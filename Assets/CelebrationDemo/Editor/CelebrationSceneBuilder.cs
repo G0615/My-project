@@ -308,9 +308,9 @@ namespace CelebrationDemo
                 new Vector3(7.2f, 0.48f, -1.9f), "偷吃奶油", m.Cream, m);
 
             targets[cursor++] = AddStationTarget(parent, "Cut Station", TargetKind.CutStation, "cut",
-                new Vector3(-7.2f, 0.65f, 2.15f), "开始 / 加入切水果", false, m);
+                new Vector3(-7.2f, 0.65f, 2.15f), "切水果", false, m);
             targets[cursor++] = AddStationTarget(parent, "Whip Station", TargetKind.WhipStation, "whip",
-                new Vector3(7.2f, 0.65f, 2.15f), "开始 / 加入打发奶油", true, m);
+                new Vector3(7.2f, 0.65f, 2.15f), "打发奶油", true, m);
             targets[cursor++] = AddChopsticksTarget(parent, m);
 
             // Cake targets alternate fruit and cream around a 60 degree ring.
@@ -367,8 +367,6 @@ namespace CelebrationDemo
                 new Vector3(0f, 1.62f, 0f), whisk ? new Vector3(.18f, .8f, .18f) : new Vector3(.18f, .18f, 1.1f),
                 m.Tool, false);
             if (whisk) tool.transform.localRotation = Quaternion.Euler(0f, 0f, 22f);
-            CreateVisual("Participants", PrimitiveType.Cube, root,
-                new Vector3(0f, 2.7f, 0f), new Vector3(1f, .05f, .05f), m.Highlight, false);
             return target;
         }
 

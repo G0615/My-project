@@ -698,6 +698,9 @@ namespace CelebrationDemo
             if (IsCraftCompletion(action)) return true;
 
             var actorText = action.ActorText ?? string.Empty;
+            if (actorText.IndexOf("加入协作", StringComparison.Ordinal) >= 0 ||
+                (action.ActionType ?? string.Empty).IndexOf("重复加入", StringComparison.Ordinal) >= 0)
+                return false;
             return actorText.IndexOf("协作完成", StringComparison.Ordinal) < 0 &&
                 actorText.IndexOf("完成次数", StringComparison.Ordinal) < 0;
         }

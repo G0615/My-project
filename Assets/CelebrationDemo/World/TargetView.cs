@@ -38,7 +38,7 @@ namespace CelebrationDemo
         void Awake()
         {
             CacheChildren();
-            HideLegacyStationProgressVisuals();
+            HideLegacyStationVisuals();
         }
 
         void CacheChildren()
@@ -105,7 +105,7 @@ namespace CelebrationDemo
         void ApplyStation(StationState station, bool whisk)
         {
             if (station == null) return;
-            HideLegacyStationProgressVisuals();
+            HideLegacyStationVisuals();
 
             var tool = transform.Find("Tool");
             if (tool != null && station.IsRunning)
@@ -113,15 +113,9 @@ namespace CelebrationDemo
                 toolAngle += Time.deltaTime * (whisk ? 420f : 250f);
                 tool.localRotation = Quaternion.Euler(0f, toolAngle, whisk ? 18f : 0f);
             }
-            var participants = transform.Find("Participants");
-            if (participants != null)
-            {
-                int count = station.ParticipantIds == null ? 0 : station.ParticipantIds.Count;
-                participants.localScale = new Vector3(1f, 1f, Mathf.Clamp01(count / 3f));
-            }
         }
 
-        void HideLegacyStationProgressVisuals()
+        void HideLegacyStationVisuals()
         {
             if (Spec == null || (Spec.Kind != TargetKind.CutStation && Spec.Kind != TargetKind.WhipStation))
                 return;
@@ -130,6 +124,8 @@ namespace CelebrationDemo
             if (progress != null) progress.gameObject.SetActive(false);
             var progressBack = transform.Find("ProgressBarBack");
             if (progressBack != null) progressBack.gameObject.SetActive(false);
+            var participants = transform.Find("Participants");
+            if (participants != null) participants.gameObject.SetActive(false);
         }
 
         void ApplyTrophy(DemoSession session)
