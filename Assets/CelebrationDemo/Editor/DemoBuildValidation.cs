@@ -39,7 +39,9 @@ namespace CelebrationDemo
             var runtime = UnityEngine.Object.FindAnyObjectByType<DemoRuntime>();
             Require(runtime != null, "Runtime missing");
             Require(runtime.Actors != null && runtime.Actors.Length == 3, "Expected three wired actors");
+            Require(runtime.Actors.All(a => a != null), "Actor reference missing");
             Require(runtime.Actors.Select(a => a.ActorId).OrderBy(id => id).SequenceEqual(new[] { 1, 2, 3 }), "Actor identities");
+            ValidateActors(runtime.Actors);
             Require(runtime.CameraRig != null && runtime.CameraRig.GetComponent<Camera>() != null, "Camera missing");
             Require(runtime.Hud != null, "HUD missing");
             Require(UnityEngine.Object.FindObjectsByType<Camera>().Length == 1, "Exactly one camera after scene generation");
@@ -58,6 +60,41 @@ namespace CelebrationDemo
             Require(UnityEngine.Object.FindObjectsByType<PlayerInteractor>().Length == 0,
                 "Old input-reading PlayerInteractor must not run in the new scene");
             Debug.Log("CELEBRATION_SCENE_PASS: actor identities, 19 targets, ownership, references, input isolation");
+        }
+
+        static void ValidateActors(ActorView[] actors)
+        {
+            for (var index = 0; index < actors.Length; index++)
+            {
+                var actor = actors[index];
+                var actorId = index + 1;
+                Require(actor.ActorId == actorId, "Actor array order must match ActorId " + actorId);
+                Require(actor.name == "Actor " + actorId, "Actor name/identity mismatch for " + actorId);
+                Require(actor.transform.Find("HeadAnchor") != null, "Head anchor missing for actor " + actorId);
+                Require(actor.transform.Find("SelectedMarker") != null, "Selection marker missing for actor " + actorId);
+
+                var body = actor.transform.Find("Body");
+                var renderer = body == null ? null : body.GetComponent<Renderer>();
+                Require(renderer != null && renderer.sharedMaterial != null,
+                    "Body material missing for actor " + actorId);
+                var material = renderer.sharedMaterial;
+                var color = material.HasProperty("_BaseColor")
+                    ? material.GetColor("_BaseColor")
+                    : material.GetColor("_Color");
+                Require(ColorMatches(color, ActorView.ColorForActor(actorId)),
+                    "Body color mismatch for actor " + actorId);
+
+                for (var other = index + 1; other < actors.Length; other++)
+                    Require((actor.transform.position - actors[other].transform.position).sqrMagnitude > 1f,
+                        "Actor spawn positions overlap");
+            }
+        }
+
+        static bool ColorMatches(Color actual, Color expected)
+        {
+            return Mathf.Abs(actual.r - expected.r) < 0.01f &&
+                Mathf.Abs(actual.g - expected.g) < 0.01f &&
+                Mathf.Abs(actual.b - expected.b) < 0.01f;
         }
 
         static void RunCoreChecks()

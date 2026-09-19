@@ -27,13 +27,6 @@ namespace CelebrationDemo
         static readonly Color PanelLightColor = new Color(0.08f, 0.115f, 0.17f, 0.94f);
         static readonly Color MutedText = new Color(0.72f, 0.78f, 0.86f, 1f);
         static readonly Color Accent = new Color(1f, 0.78f, 0.28f, 1f);
-        static readonly Color[] ActorColors =
-        {
-            new Color(0.97f, 0.29f, 0.31f, 1f),
-            new Color(1.00f, 0.82f, 0.18f, 1f),
-            new Color(0.29f, 0.66f, 1.00f, 1f)
-        };
-
         [SerializeField] DemoRuntime runtime;
 
         Canvas canvas;
@@ -836,7 +829,7 @@ namespace CelebrationDemo
 
         static Color ActorColor(int actorId)
         {
-            return actorId >= 1 && actorId <= 3 ? ActorColors[actorId - 1] : Color.white;
+            return ActorView.ColorForActor(actorId);
         }
 
         static string FormatTitles(ActorState state)

@@ -10,8 +10,24 @@ namespace CelebrationDemo
     [RequireComponent(typeof(CharacterController))]
     public sealed class ActorView : MonoBehaviour
     {
+        // Keep the visual identity mapping in the actor domain so the scene
+        // builder and HUD cannot drift apart when a role is added or moved.
+        static readonly Color[] IdentityColors =
+        {
+            new Color(0.9f, 0.12f, 0.1f, 1f),
+            new Color(0.95f, 0.72f, 0.08f, 1f),
+            new Color(0.1f, 0.34f, 0.95f, 1f)
+        };
+
         public int ActorId;
         public Transform HeadAnchor;
+
+        public static Color ColorForActor(int actorId)
+        {
+            return actorId >= 1 && actorId <= IdentityColors.Length
+                ? IdentityColors[actorId - 1]
+                : Color.white;
+        }
 
         [SerializeField] CharacterController controller;
         [SerializeField] GameObject selectedVisual;
