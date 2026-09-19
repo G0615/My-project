@@ -160,8 +160,8 @@ namespace CelebrationDemo
         {
             var camera = cameraRig.GetComponent<Camera>();
             Require(camera.orthographic, "Camera must use orthographic projection");
-            Require(Mathf.Abs(camera.orthographicSize - 21f) < 0.001f,
-                "Camera orthographic size must stay at 21 for the expanded scene");
+            Require(Mathf.Abs(camera.orthographicSize - 10.5f) < 0.001f,
+                "Camera orthographic size must stay at 10.5 for the operation area");
             Require(Quaternion.Angle(cameraRig.transform.rotation, Quaternion.Euler(48f, 0f, 0f)) < 0.01f,
                 "Camera rotation must stay at the fixed 48 degree pitch");
             Require(cameraRig.FollowSmoothTime > 0f, "Camera follow smoothing must be positive");

@@ -42,7 +42,7 @@ namespace CelebrationDemo
             return text.Contains("Banana Pile") && text.Contains("InteractionCollider") &&
                 text.Contains("Home 3 Orange Tree") && text.Contains("Cake Sector 1 Base") &&
                 text.Contains("Cream Palette 1") && text.Contains("CakeSectorVisual") &&
-                text.Contains("Cake Sector 1 Base Solid Mesh") &&
+                text.Contains("Cake Sector 1 Base Lit Mesh") &&
                 text.Contains("Donation Zone Sign Board") &&
                 text.Contains("Finished Zone Sign Board");
         }

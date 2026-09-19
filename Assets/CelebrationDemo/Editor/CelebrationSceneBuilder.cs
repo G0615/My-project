@@ -18,7 +18,10 @@ namespace CelebrationDemo
         const string GeneratedRootName = "CelebrationPrototypeGenerated";
         const string MaterialFolder = "Assets/CelebrationDemo/World/GeneratedMaterials";
         const float CameraPitch = 48f;
-        const float CameraOrthographicSize = 21f;
+        // Keep the operation area at the same apparent scale as the original
+        // prototype. The world grew outward around it; the camera should not
+        // zoom out with the homes and boundaries.
+        const float CameraOrthographicSize = 10.5f;
         const float WorldScale = 2f;
 
         static readonly Color GroundColor = new Color(0.18f, 0.28f, 0.30f);
@@ -539,11 +542,11 @@ namespace CelebrationDemo
                 int topB = bottomA + 3;
 
                 // Bottom and top fans.
-                AddDoubleSidedTriangle(triangles, 0, bottomA, bottomB);
-                AddDoubleSidedTriangle(triangles, 1, topB, topA);
+                AddTriangle(triangles, 0, bottomA, bottomB);
+                AddTriangle(triangles, 1, topB, topA);
                 // Curved outer wall.
-                AddDoubleSidedTriangle(triangles, bottomA, topB, bottomB);
-                AddDoubleSidedTriangle(triangles, bottomA, topA, topB);
+                AddTriangle(triangles, bottomA, topB, bottomB);
+                AddTriangle(triangles, bottomA, topA, topB);
             }
 
             // The two radial walls close the sector.
@@ -551,12 +554,12 @@ namespace CelebrationDemo
             int firstTop = 3;
             int lastBottom = 2 + arcSegments * 2;
             int lastTop = lastBottom + 1;
-            AddDoubleSidedTriangle(triangles, 0, firstBottom, firstTop);
-            AddDoubleSidedTriangle(triangles, 0, firstTop, 1);
-            AddDoubleSidedTriangle(triangles, 0, 1, lastTop);
-            AddDoubleSidedTriangle(triangles, 0, lastTop, lastBottom);
+            AddTriangle(triangles, 0, firstBottom, firstTop);
+            AddTriangle(triangles, 0, firstTop, 1);
+            AddTriangle(triangles, 0, 1, lastTop);
+            AddTriangle(triangles, 0, lastTop, lastBottom);
 
-            var mesh = new Mesh { name = name + " Solid Mesh" };
+            var mesh = new Mesh { name = name + " Lit Mesh" };
             mesh.SetVertices(vertices);
             mesh.SetTriangles(triangles, 0);
             mesh.RecalculateNormals();
@@ -570,10 +573,14 @@ namespace CelebrationDemo
             return sector;
         }
 
-        static void AddDoubleSidedTriangle(System.Collections.Generic.List<int> triangles, int a, int b, int c)
+        static void AddTriangle(System.Collections.Generic.List<int> triangles, int a, int b, int c)
         {
+            // The cake material is opaque and back-face culled. Duplicating
+            // every triangle with the reverse winding creates two coplanar
+            // faces and lets the depth buffer alternate between yellow and
+            // black. A correctly wound closed sector already renders its top,
+            // curved wall and radial walls without that z-fighting pair.
             triangles.Add(a); triangles.Add(b); triangles.Add(c);
-            triangles.Add(c); triangles.Add(b); triangles.Add(a);
         }
 
         static TargetView AddCelebrationTarget(Transform parent, MaterialSet m)
