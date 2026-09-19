@@ -22,6 +22,7 @@ namespace CelebrationDemo
         const float BubbleLifetime = 1.2f;
         const float ReferenceWidth = 1280f;
         const float ReferenceHeight = 720f;
+        const float ScreenEdgePadding = 12f;
 
         static readonly Color PanelColor = new Color(0.035f, 0.055f, 0.085f, 0.90f);
         static readonly Color PanelLightColor = new Color(0.08f, 0.115f, 0.17f, 0.94f);
@@ -775,7 +776,8 @@ namespace CelebrationDemo
                 bubble.root.SetActive(true);
                 Vector2 local;
                 if (RectTransformUtility.ScreenPointToLocalPointInRectangle(canvasRect, screen, null, out local))
-                    bubble.rect.anchoredPosition = local + new Vector2(0f, 24f + bubble.stack * 34f);
+                    bubble.rect.anchoredPosition = ClampToCanvas(bubble.rect,
+                        local + new Vector2(0f, 24f + bubble.stack * 34f));
             }
         }
 
@@ -819,8 +821,40 @@ namespace CelebrationDemo
                 if (RectTransformUtility.ScreenPointToLocalPointInRectangle(canvasRect, screen, null, out local))
                     // Keep the persistent target tag just below the anchor so
                     // short-lived interaction feedback can float above it.
-                    label.rect.anchoredPosition = local + new Vector2(0f, -34f);
+                    label.rect.anchoredPosition = ClampToCanvas(label.rect,
+                        local + new Vector2(0f, -34f));
             }
+        }
+
+        /// <summary>
+        /// Keeps world-space labels and feedback bubbles fully inside the
+        /// screen-space canvas.  Their anchors follow 3D targets, so simply
+        /// checking the target's screen point is not enough: a label close to
+        /// an edge can still extend beyond the frame by half its width.
+        /// </summary>
+        Vector2 ClampToCanvas(RectTransform rect, Vector2 position)
+        {
+            if (canvasRect == null || rect == null) return position;
+
+            var canvasBounds = canvasRect.rect;
+            var size = rect.rect.size;
+            if (size.sqrMagnitude < 0.01f) size = rect.sizeDelta;
+            var pivot = rect.pivot;
+            var left = size.x * pivot.x + ScreenEdgePadding;
+            var right = size.x * (1f - pivot.x) + ScreenEdgePadding;
+            var bottom = size.y * pivot.y + ScreenEdgePadding;
+            var top = size.y * (1f - pivot.y) + ScreenEdgePadding;
+
+            var minX = canvasBounds.xMin + left;
+            var maxX = canvasBounds.xMax - right;
+            var minY = canvasBounds.yMin + bottom;
+            var maxY = canvasBounds.yMax - top;
+            if (minX > maxX) minX = maxX = canvasBounds.center.x;
+            if (minY > maxY) minY = maxY = canvasBounds.center.y;
+
+            return new Vector2(
+                Mathf.Clamp(position.x, minX, maxX),
+                Mathf.Clamp(position.y, minY, maxY));
         }
 
         void DestroyBubbleAt(int index)
