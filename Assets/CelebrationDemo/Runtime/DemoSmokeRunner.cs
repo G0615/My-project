@@ -62,6 +62,7 @@ namespace CelebrationDemo
             yield return VerifyMovementAndBoundary();
             yield return VerifyActorSwitching();
             yield return VerifyCameraFollow();
+            yield return VerifyTargetSelectionAndSinglePress();
             runtime.ResetDemo();
             yield return null;
             runtime.ResetDemo();
@@ -248,6 +249,77 @@ namespace CelebrationDemo
             yield return new WaitForSeconds(1.4f);
             Require(Vector3.Distance(camera.transform.position, actor3.transform.position + followOffset) < .3f,
                 "Camera settles near the latest switched actor");
+        }
+
+        IEnumerator VerifyTargetSelectionAndSinglePress()
+        {
+            runtime.ResetDemo();
+            yield return null;
+
+            var actor = runtime.GetActorView(1);
+            var first = Target(TargetKind.HomeFruit);
+            var second = Target(TargetKind.FruitPile);
+            Require(actor != null && first != null && second != null, "A06 target selection fixtures available");
+
+            var controller = actor.GetComponent<CharacterController>();
+            if (controller != null) controller.enabled = false;
+            Vector3 originalPosition = actor.transform.position;
+            Quaternion originalRotation = actor.transform.rotation;
+            float firstRadius = first.InteractionRadius;
+            float secondRadius = second.InteractionRadius;
+
+            // Temporarily overlap two existing scene targets to exercise the
+            // single-target tie-break without adding another runtime object.
+            Vector3 midpoint = (first.transform.position + second.transform.position) * .5f;
+            midpoint.y = 1.05f;
+            float halfDistance = Vector3.Distance(first.transform.position, second.transform.position) * .5f;
+            first.InteractionRadius = Mathf.Max(firstRadius, halfDistance + .1f);
+            second.InteractionRadius = Mathf.Max(secondRadius, halfDistance + .1f);
+            actor.transform.SetPositionAndRotation(midpoint, Quaternion.LookRotation(Vector3.forward));
+            if (controller != null) controller.enabled = true;
+            yield return null;
+
+            var selected = runtime.CurrentTarget;
+            Require(selected != null && (selected == first || selected == second),
+                "One target selected when two targets overlap");
+            Require(first.IsHighlighted != second.IsHighlighted,
+                "Only the selected target is highlighted");
+            Require(selected.IsHighlighted, "Selected target is highlighted");
+            for (int frame = 0; frame < 4; frame++)
+            {
+                yield return null;
+                Require(runtime.CurrentTarget == selected, "Overlapping target selection remains stable");
+                Require(first.IsHighlighted != second.IsHighlighted,
+                    "Stable selection keeps one highlighted target");
+                Require(selected.IsHighlighted, "Stable target keeps its highlight");
+            }
+
+            first.InteractionRadius = firstRadius;
+            second.InteractionRadius = secondRadius;
+            if (controller != null) controller.enabled = false;
+            actor.transform.SetPositionAndRotation(originalPosition, originalRotation);
+            actor.transform.position += Vector3.right * 100f;
+            if (controller != null) controller.enabled = true;
+            yield return null;
+            Require(runtime.CurrentTarget == null, "Target clears after leaving interaction range");
+            Require(!selected.IsHighlighted, "Highlight clears after leaving interaction range");
+
+            // Return to one real target and hold F for several frames. The
+            // Input System's edge event must produce exactly one core action.
+            if (controller != null) controller.enabled = false;
+            Vector3 targetPosition = first.transform.position + Vector3.back * Mathf.Min(1.25f, first.InteractionRadius * .8f);
+            targetPosition.y = 1.05f;
+            actor.transform.SetPositionAndRotation(targetPosition, Quaternion.LookRotation(Vector3.forward));
+            if (controller != null) controller.enabled = true;
+            yield return null;
+            Require(runtime.CurrentTarget == first && first.IsHighlighted, "Single target is selected before F");
+            int historyBefore = runtime.Session.GetHistory(1).Count;
+            InputSystem.QueueStateEvent(testKeyboard, new KeyboardState(Key.F));
+            yield return new WaitForSeconds(.2f);
+            InputSystem.QueueStateEvent(testKeyboard, new KeyboardState());
+            yield return null;
+            int historyAfter = runtime.Session.GetHistory(1).Count;
+            Require(historyAfter == historyBefore + 1, "Holding F triggers exactly one interaction");
         }
 
         IEnumerator HoldKeys(float seconds, params Key[] keys)

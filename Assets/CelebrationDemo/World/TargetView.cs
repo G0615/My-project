@@ -14,6 +14,9 @@ namespace CelebrationDemo
         public Transform FeedbackAnchor;
         public float InteractionRadius = 2.4f;
 
+        /// <summary>Whether this target is the runtime's current interaction target.</summary>
+        public bool IsHighlighted { get; private set; }
+
         [SerializeField] GameObject highlightVisual;
 
         float toolAngle;
@@ -39,6 +42,7 @@ namespace CelebrationDemo
 
         public void SetHighlighted(bool value)
         {
+            IsHighlighted = value;
             if (highlightVisual == null) CacheChildren();
             if (highlightVisual != null) highlightVisual.SetActive(value);
         }

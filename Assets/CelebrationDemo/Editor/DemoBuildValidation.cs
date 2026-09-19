@@ -52,6 +52,12 @@ namespace CelebrationDemo
                 .Any(c => c.name == "Ground" && c.enabled && !c.isTrigger), "Solid ground collider missing");
             Require(runtime.Targets != null && runtime.Targets.Length == 19, "Expected 19 targets: 9 supplies/work + 6 cake + celebration + 3 trophy");
             Require(runtime.Targets.Select(t => t.Spec.Id).Distinct().Count() == runtime.Targets.Length, "Duplicate target IDs");
+            Require(runtime.Targets.All(t => t != null && t.Spec != null && t.InteractionRadius > 0f),
+                "Every target needs a positive interaction radius and spec");
+            Require(runtime.Targets.All(t => t.transform.Find("Highlight") != null),
+                "Every target needs a highlight visual");
+            Require(runtime.Targets.All(t => !t.transform.Find("Highlight").gameObject.activeSelf),
+                "Target highlights start hidden");
             foreach (TargetKind kind in Enum.GetValues(typeof(TargetKind)))
                 Require(runtime.Targets.Any(t => t.Spec.Kind == kind), "Missing target " + kind);
             Require(runtime.Targets.Count(t => t.Spec.Kind == TargetKind.CakeFruit) == 3, "Fruit slot count");

@@ -167,9 +167,24 @@ namespace CelebrationDemo
                 float facing = distance > .05f ? Vector3.Dot(actor.transform.forward, offset / distance) : 1;
                 // Distance dominates. Facing and a small sticky margin avoid flickering at boundaries.
                 float score = -distance + .3f * facing + (target == CurrentTarget ? .18f : 0);
-                if (score > bestScore) { bestScore = score; best = target; }
+                if (score > bestScore ||
+                    (Mathf.Abs(score - bestScore) < .0001f && IsStableTieWinner(target, best)))
+                {
+                    bestScore = score;
+                    best = target;
+                }
             }
             return best;
+        }
+
+        // Scene arrays are serialized in authoring order, but a stable ID tie-break
+        // keeps selection deterministic if a hand-edited scene reorders references.
+        static bool IsStableTieWinner(TargetView candidate, TargetView current)
+        {
+            if (current == null) return true;
+            string candidateId = candidate.Spec == null ? string.Empty : candidate.Spec.Id ?? string.Empty;
+            string currentId = current.Spec == null ? string.Empty : current.Spec.Id ?? string.Empty;
+            return string.CompareOrdinal(candidateId, currentId) < 0;
         }
 
         void SetTarget(TargetView target)
