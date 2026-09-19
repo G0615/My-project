@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using CelebrationDemo;
 
@@ -23,6 +24,7 @@ namespace CelebrationDemo
             CelebrationAwardsEveryActorOnceAndSupportsTrophyFlow();
             PersonalHistoryIsCompleteAndScoped();
             RecentLogReadsDoNotRecordAgain();
+            FeedbackFieldsStayHumanReadableAndHudUsesTheirLifecycle();
             ResetStartsANewEmptyActivity();
             return checks;
         }
@@ -282,6 +284,58 @@ namespace CelebrationDemo
                 "repeated recent log refresh reads the same event window");
             Check(session.History.Count == beforeRefreshes,
                 "recent log refresh does not record another event");
+        }
+
+        static void FeedbackFieldsStayHumanReadableAndHudUsesTheirLifecycle()
+        {
+            var session = new DemoSession();
+            var target = new TargetSpec("internal-home-fruit-key", TargetKind.HomeFruit);
+            ActionEvent action = null;
+            session.EventRecorded += item => action = item;
+            session.Execute(1, target);
+
+            Check(action != null && !string.IsNullOrWhiteSpace(action.ActorText),
+                "actor feedback is supplied by the committed ActionEvent");
+            Check(action != null && !string.IsNullOrWhiteSpace(action.TargetText),
+                "target feedback is supplied by the committed ActionEvent");
+            Check(action != null && !action.ActorText.Contains(target.Id) && !action.TargetText.Contains(target.Id),
+                "core feedback fields do not expose the internal target ID");
+
+            var hudSource = FindProjectFile(Path.Combine("Assets", "CelebrationDemo", "UI", "DemoHud.cs"));
+            Check(!string.IsNullOrEmpty(hudSource), "DemoHud source is available for the feedback contract check");
+            Check(hudSource.Contains("ShortFeedback(action.ActorText") &&
+                hudSource.Contains("ShortFeedback(action.TargetText"),
+                "DemoHud reads actor and target feedback from ActionEvent fields");
+            Check(hudSource.Contains("ActorColor(action.ActorId)") &&
+                hudSource.Contains("ActorColor(actorId)") &&
+                hudSource.Contains("TargetText, action.Message, action.TargetId), MutedText"),
+                "DemoHud keeps actor colors and neutral target feedback distinct");
+            Check(hudSource.Contains("PruneExpiredBubbles") &&
+                hudSource.Contains("now >= bubble.expiresAt") &&
+                hudSource.Contains("DestroyBubbleAt(i)"),
+                "DemoHud removes expired feedback bubbles");
+            Check(hudSource.Contains("RemoveInternalTargetId") &&
+                !hudSource.Contains("ShortFeedback(action.TargetId"),
+                "DemoHud filters target IDs instead of displaying them as feedback");
+        }
+
+        static string FindProjectFile(string relativePath)
+        {
+            var starts = new[]
+            {
+                new DirectoryInfo(Directory.GetCurrentDirectory()),
+                new DirectoryInfo(AppContext.BaseDirectory)
+            };
+            foreach (var start in starts)
+            {
+                var directory = start;
+                for (var depth = 0; directory != null && depth < 10; depth++, directory = directory.Parent)
+                {
+                    var candidate = Path.Combine(directory.FullName, relativePath);
+                    if (File.Exists(candidate)) return File.ReadAllText(candidate);
+                }
+            }
+            return string.Empty;
         }
 
         static IReadOnlyList<ActionEvent> ReadRecentWindow(IReadOnlyList<ActionEvent> history, int limit)

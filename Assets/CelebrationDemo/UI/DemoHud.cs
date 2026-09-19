@@ -86,6 +86,11 @@ namespace CelebrationDemo
         {
             if (!initialized || action == null) return;
 
+            // EventRecorded can arrive before LateUpdate. Prune here as well as
+            // in the frame loop so a rapid sequence cannot stack against an
+            // already expired bubble that is waiting for deferred destruction.
+            PruneExpiredBubbles();
+
             // Record is already committed before EventRecorded is raised. Read
             // the session window here so this event also follows the same
             // idempotent path used by the per-frame HUD refresh.
@@ -98,7 +103,7 @@ namespace CelebrationDemo
             {
                 var actor = FindActor(action.ActorId);
                 SpawnBubble(actor != null ? ActorAnchor(actor) : null,
-                    ShortFeedback(action.ActorText, action.Message), ActorColor(action.ActorId));
+                    ShortFeedback(action.ActorText, action.Message, action.TargetId), ActorColor(action.ActorId));
             }
             else if (action.ParticipantIds != null)
             {
@@ -106,14 +111,14 @@ namespace CelebrationDemo
                 {
                     var actor = FindActor(actorId);
                     SpawnBubble(actor != null ? ActorAnchor(actor) : null,
-                        ShortFeedback(action.ActorText, action.Message), ActorColor(actorId));
+                        ShortFeedback(action.ActorText, action.Message, action.TargetId), ActorColor(actorId));
                 }
             }
 
             var target = FindTarget(action.TargetId);
             if (target != null)
                 SpawnBubble(TargetAnchor(target),
-                    ShortFeedback(action.TargetText, action.Message), MutedText);
+                    ShortFeedback(action.TargetText, action.Message, action.TargetId), MutedText);
         }
 
         /// <summary>Shows the complete personal history for the actor who viewed a trophy.</summary>
@@ -715,6 +720,7 @@ namespace CelebrationDemo
         void SpawnBubble(Transform anchor, string content, Color color)
         {
             if (anchor == null || string.IsNullOrEmpty(content) || worldBubbleRoot == null) return;
+            PruneExpiredBubbles();
             var objectBubble = new GameObject("反馈飘字", typeof(RectTransform), typeof(Image));
             objectBubble.transform.SetParent(worldBubbleRoot, false);
             var rect = objectBubble.GetComponent<RectTransform>();
@@ -740,12 +746,12 @@ namespace CelebrationDemo
 
         void UpdateBubbles()
         {
+            PruneExpiredBubbles();
             var camera = CameraForWorld();
             for (var i = bubbles.Count - 1; i >= 0; i--)
             {
                 var bubble = bubbles[i];
-                if (bubble == null || bubble.root == null || bubble.anchor == null ||
-                    Time.unscaledTime >= bubble.expiresAt)
+                if (bubble == null || bubble.root == null || bubble.anchor == null)
                 {
                     DestroyBubbleAt(i);
                     continue;
@@ -770,6 +776,18 @@ namespace CelebrationDemo
                 Vector2 local;
                 if (RectTransformUtility.ScreenPointToLocalPointInRectangle(canvasRect, screen, null, out local))
                     bubble.rect.anchoredPosition = local + new Vector2(0f, 24f + bubble.stack * 34f);
+            }
+        }
+
+        void PruneExpiredBubbles()
+        {
+            var now = Time.unscaledTime;
+            for (var i = bubbles.Count - 1; i >= 0; i--)
+            {
+                var bubble = bubbles[i];
+                if (bubble == null || bubble.root == null || bubble.anchor == null ||
+                    now >= bubble.expiresAt)
+                    DestroyBubbleAt(i);
             }
         }
 
@@ -865,12 +883,23 @@ namespace CelebrationDemo
             return action.ActorId == 0 ? "公共行为" : string.Empty;
         }
 
-        string ShortFeedback(string preferred, string fallback)
+        string ShortFeedback(string preferred, string fallback, string targetId)
         {
             var text = string.IsNullOrWhiteSpace(preferred) ? fallback : preferred;
             if (string.IsNullOrWhiteSpace(text)) return "完成";
             text = text.Replace("\n", " ").Trim();
+            text = RemoveInternalTargetId(text, targetId);
+            if (string.IsNullOrWhiteSpace(text)) return "完成";
             return text.Length > 24 ? text.Substring(0, 24) + "…" : text;
+        }
+
+        static string RemoveInternalTargetId(string text, string targetId)
+        {
+            if (string.IsNullOrEmpty(text) || string.IsNullOrEmpty(targetId)) return text;
+            // TargetSpec.Id is an internal lookup key. It may be present in a
+            // custom event's fallback message, but must never become visible UI.
+            return text.Replace(targetId, string.Empty)
+                .Trim(' ', '\t', '·', '；', ';', '，', ',', ':', '：', '-', '_', '[', ']');
         }
 
         string ColorizePlayers(string text)
