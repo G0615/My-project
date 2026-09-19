@@ -20,9 +20,32 @@ namespace CelebrationDemo
 
         const float SelectionDistanceEpsilon = 0.01f;
         const float SelectionFacingEpsilon = 0.001f;
+        const float CelebrationCountdownSeconds = 5f;
+        const float CelebrationFireworksSeconds = 5f;
+        const float CelebrationWalkSpeed = 12f;
+        const float CelebrationCameraPitch = 10f;
+        static readonly Vector3 CelebrationFocus = new Vector3(0f, 1.2f, 2.4f);
+        static readonly Vector3[] CelebrationActorSpots =
+        {
+            new Vector3(-3f, 0f, -1.5f),
+            new Vector3(0f, 0f, -1.5f),
+            new Vector3(3f, 0f, -1.5f)
+        };
+
+        enum CelebrationPhase
+        {
+            None,
+            Countdown,
+            Fireworks
+        }
 
         double elapsed;
         Camera gameplayCamera;
+        CelebrationPhase celebrationPhase;
+        float celebrationPhaseElapsed;
+        CelebrationFireworks fireworks;
+
+        public bool IsCelebrationSequenceRunning => celebrationPhase != CelebrationPhase.None;
 
         void Awake()
         {
@@ -52,6 +75,12 @@ namespace CelebrationDemo
         {
             elapsed += Time.deltaTime;
             Session.Advance(elapsed);
+            if (celebrationPhase != CelebrationPhase.None)
+            {
+                UpdateCelebrationSequence();
+                return;
+            }
+
             var keyboard = Keyboard.current;
             bool switched = false;
             if (keyboard != null)
@@ -130,17 +159,98 @@ namespace CelebrationDemo
             if (target == null) return;
             var offer = Session.Resolve(ActiveActorId, target.Spec);
             if (!offer.CanExecute) return;
+            bool repeatedCelebration = target.Spec.Kind == TargetKind.Celebration && Session.HasCelebrated;
             var outcome = Session.Execute(ActiveActorId, target.Spec);
             RefreshWorld();
             if (Hud != null && outcome != null)
             {
                 if (outcome.OpenHistory) Hud.ShowHistory(outcome.ActorId);
-                else if (outcome.OpenCelebration) Hud.ShowCelebration();
+                else if (outcome.OpenCelebration)
+                {
+                    if (repeatedCelebration) Hud.ShowCelebration();
+                    else StartCelebrationSequence();
+                }
             }
+        }
+
+        void StartCelebrationSequence()
+        {
+            celebrationPhase = CelebrationPhase.Countdown;
+            celebrationPhaseElapsed = 0f;
+            SetTarget(null);
+            if (CameraRig != null)
+                CameraRig.BeginCinematicView(CelebrationFocus, CelebrationCameraPitch,
+                    CelebrationCountdownSeconds);
+            if (Hud != null)
+                Hud.SetCelebrationCountdown(Mathf.CeilToInt(CelebrationCountdownSeconds));
+        }
+
+        void UpdateCelebrationSequence()
+        {
+            celebrationPhaseElapsed += Time.deltaTime;
+            MoveActorsToCelebrationSpots();
+
+            if (celebrationPhase == CelebrationPhase.Countdown)
+            {
+                int remaining = Mathf.CeilToInt(Mathf.Max(0f,
+                    CelebrationCountdownSeconds - celebrationPhaseElapsed));
+                if (Hud != null) Hud.SetCelebrationCountdown(remaining);
+                if (celebrationPhaseElapsed >= CelebrationCountdownSeconds)
+                    BeginFireworks();
+                return;
+            }
+
+            if (celebrationPhase == CelebrationPhase.Fireworks &&
+                celebrationPhaseElapsed >= CelebrationFireworksSeconds)
+                FinishCelebrationSequence();
+        }
+
+        void MoveActorsToCelebrationSpots()
+        {
+            if (Actors == null) return;
+            for (int i = 0; i < CelebrationActorSpots.Length; i++)
+            {
+                var actor = GetActorView(i + 1);
+                if (actor != null) actor.MoveTowards(CelebrationActorSpots[i], CelebrationWalkSpeed);
+            }
+        }
+
+        void BeginFireworks()
+        {
+            celebrationPhase = CelebrationPhase.Fireworks;
+            celebrationPhaseElapsed = 0f;
+            if (Hud != null) Hud.HideCelebrationCountdown();
+            if (fireworks != null) Destroy(fireworks.gameObject);
+            fireworks = CelebrationFireworks.Create(CelebrationFocus);
+        }
+
+        void FinishCelebrationSequence()
+        {
+            celebrationPhase = CelebrationPhase.None;
+            celebrationPhaseElapsed = 0f;
+            if (fireworks != null)
+            {
+                Destroy(fireworks.gameObject);
+                fireworks = null;
+            }
+            if (Hud != null) Hud.HideCelebrationCountdown();
+            var activeActor = GetActorView(ActiveActorId);
+            if (CameraRig != null)
+                CameraRig.EndCinematicView(activeActor != null ? activeActor.transform : null);
+            if (Hud != null) Hud.ShowCelebration();
         }
 
         public void ResetDemo()
         {
+            if (fireworks != null)
+            {
+                Destroy(fireworks.gameObject);
+                fireworks = null;
+            }
+            celebrationPhase = CelebrationPhase.None;
+            celebrationPhaseElapsed = 0f;
+            if (CameraRig != null && CameraRig.IsCinematicView)
+                CameraRig.EndCinematicView(null);
             elapsed = 0;
             Session.Reset();
             if (Hud != null) Hud.ResetView();
@@ -236,6 +346,7 @@ namespace CelebrationDemo
         void OnDestroy()
         {
             if (Session != null) Session.EventRecorded -= PresentAction;
+            if (fireworks != null) Destroy(fireworks.gameObject);
         }
     }
 }

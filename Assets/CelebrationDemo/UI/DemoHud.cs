@@ -64,6 +64,8 @@ namespace CelebrationDemo
         ScrollRect modalScroll;
         RectTransform modalContent;
         Text celebrationHintText;
+        GameObject celebrationCountdownRoot;
+        Text celebrationCountdownText;
 
         bool initialized;
         bool modalOpen;
@@ -183,6 +185,7 @@ namespace CelebrationDemo
         public void ResetView()
         {
             CloseModal();
+            HideCelebrationCountdown();
             ClearRecentLogs();
 
             for (var i = bubbles.Count - 1; i >= 0; i--)
@@ -258,11 +261,43 @@ namespace CelebrationDemo
             var hudRect = hudRoot.GetComponent<RectTransform>();
             Stretch(hudRect);
 
+            BuildCelebrationCountdown(hudRect);
             BuildActorStrip(hudRect);
             BuildControlHint(hudRect);
             BuildLogPanel(hudRect);
             BuildWorldBubbles(hudRect);
             BuildModal(hudRect);
+        }
+
+        void BuildCelebrationCountdown(RectTransform parent)
+        {
+            var panel = Panel(parent, "庆典倒计时", new Vector2(0.34f, 0.875f),
+                new Vector2(0.66f, 0.965f), new Color(0.035f, 0.055f, 0.085f, 0.94f));
+            celebrationCountdownRoot = panel.gameObject;
+            celebrationCountdownText = AddText(panel, "", 24, Accent, TextAnchor.MiddleCenter,
+                new Vector2(0.04f, 0.04f), new Vector2(0.96f, 0.96f));
+            celebrationCountdownText.fontStyle = FontStyle.Bold;
+            celebrationCountdownRoot.SetActive(false);
+        }
+
+        /// <summary>Updates the top-center countdown used by the celebration presentation.</summary>
+        public void SetCelebrationCountdown(int seconds)
+        {
+            if (!initialized || celebrationCountdownRoot == null || celebrationCountdownText == null)
+                return;
+            if (seconds <= 0)
+            {
+                celebrationCountdownRoot.SetActive(false);
+                return;
+            }
+            celebrationCountdownRoot.SetActive(true);
+            celebrationCountdownText.text = "庆典倒计时  " + seconds;
+        }
+
+        public void HideCelebrationCountdown()
+        {
+            if (celebrationCountdownRoot != null)
+                celebrationCountdownRoot.SetActive(false);
         }
 
         void BuildActorStrip(RectTransform parent)

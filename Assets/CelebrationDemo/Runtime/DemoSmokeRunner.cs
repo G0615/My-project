@@ -58,7 +58,7 @@ namespace CelebrationDemo
         IEnumerator RunSequence()
         {
             Require(runtime != null && runtime.Session != null, "Runtime initialized");
-            Require(runtime.Actors.Length == 3 && runtime.Targets.Length == 19, "Scene contents");
+            Require(runtime.Actors.Length == 3 && runtime.Targets.Length == 23, "Scene contents");
             yield return VerifyMovementAndBoundary();
             yield return VerifyActorSwitching();
             yield return VerifyCameraFollow();
@@ -104,6 +104,9 @@ namespace CelebrationDemo
             Require(runtime.Session.GetHistory(1).Count > 100, "History beyond recent log window");
 
             yield return Perform(TargetKind.Celebration, 3);
+            Require(runtime.IsCelebrationSequenceRunning, "Celebration enters countdown and fireworks presentation");
+            yield return new WaitUntil(() => runtime.Hud.IsModalOpen);
+            Require(!runtime.IsCelebrationSequenceRunning, "Celebration presentation ends before result modal");
             Require(runtime.Hud.IsModalOpen, "Celebration UI opens");
             for (int id = 1; id <= 3; id++)
                 Require(runtime.Session.GetActor(id).TrophyStatus == TrophyStatus.Awarded, "Actor " + id + " awarded");

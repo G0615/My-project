@@ -98,6 +98,40 @@ namespace CelebrationDemo
             }
         }
 
+        /// <summary>
+        /// Moves an actor toward a short scripted presentation marker. The
+        /// celebration walk is intentionally direct so a station or prop
+        /// collider cannot strand one of the three actors halfway to the cake.
+        /// </summary>
+        public bool MoveTowards(Vector3 destination, float speed)
+        {
+            Vector3 current = transform.position;
+            destination.y = current.y;
+            Vector3 delta = destination - current;
+            float distance = delta.magnitude;
+            if (distance <= 0.04f)
+            {
+                if (controller != null) controller.enabled = false;
+                transform.position = destination;
+                if (controller != null) controller.enabled = true;
+                return true;
+            }
+
+            Vector3 direction = delta / distance;
+            float step = Mathf.Min(distance, Mathf.Max(0f, speed) * Time.deltaTime);
+            if (controller != null) controller.enabled = false;
+            transform.position = current + direction * step;
+            if (controller != null) controller.enabled = true;
+
+            if (direction.sqrMagnitude > 0.0001f)
+            {
+                Quaternion desired = Quaternion.LookRotation(direction, Vector3.up);
+                transform.rotation = Quaternion.Slerp(transform.rotation, desired,
+                    1f - Mathf.Exp(-turnSpeed * Time.deltaTime));
+            }
+            return distance - step <= 0.04f;
+        }
+
         public void SetActiveVisual(bool active)
         {
             if (selectedVisual == null)
