@@ -95,13 +95,13 @@ namespace CelebrationDemo
             RefreshRecentLogs();
 
             // Only personal resource/effect changes become head feedback.
-            // Shared completion and completion-count bookkeeping remain in the
-            // log, but are intentionally silent above the actors.
+            // A completed station gives each participant a short success line;
+            // the shared completion line itself remains in the log only.
             if (ShouldShowActorFeedback(action) && action.ActorId != 0)
             {
                 var actor = FindActor(action.ActorId);
                 SpawnBubble(actor != null ? ActorAnchor(actor) : null,
-                    ShortFeedback(action.ActorText, action.Message, action.TargetId), ActorColor(action.ActorId));
+                    ActorFeedback(action), ActorColor(action.ActorId));
             }
 
         }
@@ -695,13 +695,28 @@ namespace CelebrationDemo
         static bool ShouldShowActorFeedback(ActionEvent action)
         {
             if (action == null || action.ActorId == 0) return false;
-            if (string.Equals(action.ActionType, "切水果完成统计", StringComparison.Ordinal) ||
-                string.Equals(action.ActionType, "打发奶油完成统计", StringComparison.Ordinal))
-                return false;
+            if (IsCraftCompletion(action)) return true;
 
             var actorText = action.ActorText ?? string.Empty;
             return actorText.IndexOf("协作完成", StringComparison.Ordinal) < 0 &&
                 actorText.IndexOf("完成次数", StringComparison.Ordinal) < 0;
+        }
+
+        static bool IsCraftCompletion(ActionEvent action)
+        {
+            return action != null &&
+                (string.Equals(action.ActionType, "切水果完成统计", StringComparison.Ordinal) ||
+                 string.Equals(action.ActionType, "打发奶油完成统计", StringComparison.Ordinal));
+        }
+
+        string ActorFeedback(ActionEvent action)
+        {
+            if (action == null) return "完成";
+            if (string.Equals(action.ActionType, "切水果完成统计", StringComparison.Ordinal))
+                return "切水果成功";
+            if (string.Equals(action.ActionType, "打发奶油完成统计", StringComparison.Ordinal))
+                return "打发奶油成功";
+            return ShortFeedback(action.ActorText, action.Message, action.TargetId);
         }
 
         void UpdateBubbles()
