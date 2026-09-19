@@ -13,6 +13,7 @@ namespace CelebrationDemo
         {
             checks = 0;
             ModelsHaveFrozenDefaults();
+            SingleInteractionCarriesIdentityAndSequence();
             EventHistoryIsCommittedBeforeNotification();
             SharedWorkIsUniqueAndKeepsParticipants();
             SharedWorkUsesOneTwoThreePersonDurations();
@@ -33,6 +34,25 @@ namespace CelebrationDemo
             Check(session.Cake.FruitStyles.Length == 3 && session.Cake.CreamColors.Length == 3, "cake has three plus three slots");
             Check(session.GetActor(1).GrantedTitles.Length == 0, "actors start without formal titles");
             Check(!session.GetActor(1).HasDonated && !session.GetActor(1).HasEaten, "actors start without participation");
+        }
+
+        static void SingleInteractionCarriesIdentityAndSequence()
+        {
+            var session = new DemoSession();
+            var target = new TargetSpec("home-fruit", TargetKind.HomeFruit);
+            ActionEvent notified = null;
+            session.EventRecorded += action => notified = action;
+
+            var outcome = session.Execute(1, target);
+            Check(outcome.Success, "valid interaction succeeds");
+            Check(session.History.Count == 1, "one valid interaction appends one event");
+            Check(notified != null && ReferenceEquals(session.History[0], notified), "the notified event is the committed event");
+            Check(notified.ActivityId == session.ActivityId, "event keeps the current activity");
+            Check(notified.ActorId == 1 && notified.TargetId == target.Id, "event identifies actor and target");
+            Check(notified.Sequence == 1L && notified.EventId == session.ActivityId + "-1", "first event has sequence and event ID");
+
+            session.Execute(1, new TargetSpec("shop-egg", TargetKind.ShopEgg));
+            Check(session.History.Count == 2 && session.History[1].Sequence == 2L, "sequence advances for the next interaction");
         }
 
         static void EventHistoryIsCommittedBeforeNotification()
