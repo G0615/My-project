@@ -101,8 +101,19 @@ namespace CelebrationDemo
         {
             int style = ReadCakeValue(session.Cake != null ? session.Cake.CreamColors : null, Spec.Index);
             var sector = CakeSectorVisual != null ? CakeSectorVisual.transform : null;
+            if (sector == null && Spec != null)
+            {
+                // Older serialized scenes may not yet contain the new object
+                // reference. Resolve the alternating cream sector by its
+                // stable authored name so the whole wedge still updates.
+                var sectorName = "Cake Sector " + (Spec.Index * 2 + 2) + " Top";
+                var legacySceneSector = GameObject.Find(sectorName);
+                if (legacySceneSector != null) sector = legacySceneSector.transform;
+            }
             if (sector != null) sector.gameObject.SetActive(true);
             SetColor(sector, CreamColor(style));
+            var legacyPoint = transform.Find("CreamSurface");
+            if (legacyPoint != null) legacyPoint.gameObject.SetActive(false);
         }
 
         void ApplyStation(StationState station, bool whisk)
