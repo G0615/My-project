@@ -367,10 +367,6 @@ namespace CelebrationDemo
                 new Vector3(0f, 1.62f, 0f), whisk ? new Vector3(.18f, .8f, .18f) : new Vector3(.18f, .18f, 1.1f),
                 m.Tool, false);
             if (whisk) tool.transform.localRotation = Quaternion.Euler(0f, 0f, 22f);
-            var barBack = CreateVisual("ProgressBarBack", PrimitiveType.Cube, root,
-                new Vector3(0f, 2.45f, 0f), new Vector3(2.2f, .12f, .18f), m.DarkWood, false);
-            CreateVisual("ProgressBar", PrimitiveType.Cube, root,
-                new Vector3(-.5f, 2.45f, -.1f), new Vector3(1f, .15f, .22f), whisk ? m.Pink : m.Orange, false);
             CreateVisual("Participants", PrimitiveType.Cube, root,
                 new Vector3(0f, 2.7f, 0f), new Vector3(1f, .05f, .05f), m.Highlight, false);
             return target;

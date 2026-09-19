@@ -23,11 +23,14 @@ namespace CelebrationDemo
         const float ReferenceWidth = 1280f;
         const float ReferenceHeight = 720f;
         const float ScreenEdgePadding = 12f;
+        const float CompletionFlashPhase = 0.14f;
+        const int CompletionFlashCount = 4;
 
         static readonly Color PanelColor = new Color(0.035f, 0.055f, 0.085f, 0.90f);
         static readonly Color PanelLightColor = new Color(0.08f, 0.115f, 0.17f, 0.94f);
         static readonly Color MutedText = new Color(0.72f, 0.78f, 0.86f, 1f);
         static readonly Color Accent = new Color(1f, 0.78f, 0.28f, 1f);
+        static readonly Color CompletionFlashColor = new Color(1f, 0.92f, 0.36f, 1f);
         [SerializeField] DemoRuntime runtime;
 
         Canvas canvas;
@@ -43,6 +46,10 @@ namespace CelebrationDemo
         readonly List<FloatingBubble> bubbles = new List<FloatingBubble>();
         readonly Text[] actorCardTexts = new Text[3];
         readonly Image[] stationProgressImages = new Image[2];
+        readonly Image[] stationProgressBackgrounds = new Image[2];
+        readonly GameObject[] stationProgressRoots = new GameObject[2];
+        readonly StationProgressVisual[] stationProgressVisuals =
+            { new StationProgressVisual(), new StationProgressVisual() };
         readonly Text[] stationTexts = new Text[2];
 
         Text activeActorText;
@@ -197,6 +204,7 @@ namespace CelebrationDemo
                 if (pair.Value != null && pair.Value.root != null) Destroy(pair.Value.root);
             worldLabels.Clear();
 
+            ResetStationProgressVisuals();
             RefreshHud();
         }
 
@@ -319,6 +327,8 @@ namespace CelebrationDemo
                 barBackRect.anchorMin = new Vector2(0.04f, 0.13f);
                 barBackRect.anchorMax = new Vector2(0.96f, 0.42f);
                 barBackRect.offsetMin = barBackRect.offsetMax = Vector2.zero;
+                stationProgressRoots[i] = barBack.gameObject;
+                stationProgressBackgrounds[i] = barBack;
                 var fill = Image(barBack.gameObject, "进度", i == 0 ? new Color(0.98f, 0.34f, 0.32f, 1f) : new Color(0.36f, 0.76f, 1f, 1f));
                 var fillRect = fill.rectTransform;
                 Stretch(fillRect);
@@ -327,6 +337,9 @@ namespace CelebrationDemo
                 fill.fillOrigin = 0;
                 fill.fillAmount = 0f;
                 stationProgressImages[i] = fill;
+                stationProgressRoots[i].SetActive(false);
+                stationProgressVisuals[i].normalFill = fill.color;
+                stationProgressVisuals[i].normalBackground = barBack.color;
             }
         }
 
@@ -510,17 +523,14 @@ namespace CelebrationDemo
                 {
                     var people = station.ParticipantIds == null ? 0 : station.ParticipantIds.Count;
                     label.title.text = title + "\n" + (station.IsRunning ? "制作中 " : "待机 ") +
-                        Mathf.RoundToInt(Mathf.Clamp01(station.Progress) * 100f) + "% · " + people + "人";
-                    label.fill.gameObject.SetActive(true);
-                    label.fill.fillAmount = Mathf.Clamp01(station.Progress);
+                        people + "人";
                 }
                 else
                 {
                     label.title.text = (target == runtime.CurrentTarget ? "◆ " : "") + title;
-                    label.fill.gameObject.SetActive(false);
                 }
                 label.anchor = TargetAnchor(target);
-                label.root.SetActive(true);
+                label.root.SetActive(target == runtime.CurrentTarget);
             }
 
             var stale = new List<TargetView>();
@@ -546,22 +556,11 @@ namespace CelebrationDemo
                 new Vector2(0.03f, 0.27f), new Vector2(0.97f, 0.97f));
             title.horizontalOverflow = HorizontalWrapMode.Wrap;
             title.verticalOverflow = VerticalWrapMode.Truncate;
-            var barBack = Image(objectLabel, "工位进度底", new Color(0.01f, 0.015f, 0.025f, 1f));
-            var barRect = barBack.rectTransform;
-            barRect.anchorMin = new Vector2(0.07f, 0.09f);
-            barRect.anchorMax = new Vector2(0.93f, 0.21f);
-            barRect.offsetMin = barRect.offsetMax = Vector2.zero;
-            var fill = Image(barBack.gameObject, "工位进度", new Color(1f, 0.56f, 0.18f, 1f));
-            Stretch(fill.rectTransform);
-            fill.type = UnityEngine.UI.Image.Type.Filled;
-            fill.fillMethod = UnityEngine.UI.Image.FillMethod.Horizontal;
-            fill.fillOrigin = 0;
             return new WorldLabel
             {
                 root = objectLabel,
                 rect = rect,
                 title = title,
-                fill = fill,
                 anchor = TargetAnchor(target)
             };
         }
@@ -579,7 +578,82 @@ namespace CelebrationDemo
                     : string.Join("、", station.ParticipantIds.Distinct().Select(id => id + "号"));
                 stationTexts[i].text = labels[i] + "    " + (station.IsRunning ? "制作中" : "空闲") +
                     (string.IsNullOrEmpty(participants) ? "" : "    参与 " + participants);
-                stationProgressImages[i].fillAmount = Mathf.Clamp01(station.Progress);
+                RefreshStationProgress(i, station);
+            }
+        }
+
+        void RefreshStationProgress(int index, StationState station)
+        {
+            var visual = stationProgressVisuals[index];
+            var root = stationProgressRoots[index];
+            var background = stationProgressBackgrounds[index];
+            var fill = stationProgressImages[index];
+            if (visual == null || root == null || background == null || fill == null || station == null)
+                return;
+
+            if (station.IsRunning)
+            {
+                visual.batchId = station.BatchId;
+                visual.wasRunning = true;
+                visual.completionAnimating = false;
+                root.SetActive(true);
+                background.color = visual.normalBackground;
+                fill.color = visual.normalFill;
+                fill.fillAmount = Mathf.Clamp01(station.Progress);
+                return;
+            }
+
+            if (visual.wasRunning && station.Progress >= 1f && !visual.completionAnimating)
+            {
+                visual.wasRunning = false;
+                visual.completionAnimating = true;
+                visual.completionStartedAt = Time.unscaledTime;
+            }
+
+            if (visual.completionAnimating)
+            {
+                var phase = Mathf.FloorToInt((Time.unscaledTime - visual.completionStartedAt) /
+                    CompletionFlashPhase);
+                if (phase >= CompletionFlashCount)
+                {
+                    visual.completionAnimating = false;
+                    root.SetActive(false);
+                    background.color = visual.normalBackground;
+                    fill.color = visual.normalFill;
+                    fill.fillAmount = 0f;
+                    return;
+                }
+
+                var visible = phase % 2 == 0;
+                root.SetActive(visible);
+                background.color = visible ? CompletionFlashColor : visual.normalBackground;
+                fill.color = visible ? CompletionFlashColor : visual.normalFill;
+                fill.fillAmount = 1f;
+                return;
+            }
+
+            visual.wasRunning = false;
+            root.SetActive(false);
+            fill.fillAmount = 0f;
+        }
+
+        void ResetStationProgressVisuals()
+        {
+            for (var i = 0; i < stationProgressVisuals.Length; i++)
+            {
+                var visual = stationProgressVisuals[i];
+                visual.wasRunning = false;
+                visual.completionAnimating = false;
+                visual.completionStartedAt = 0f;
+                visual.batchId = 0;
+                if (stationProgressRoots[i] != null) stationProgressRoots[i].SetActive(false);
+                if (stationProgressBackgrounds[i] != null)
+                    stationProgressBackgrounds[i].color = visual.normalBackground;
+                if (stationProgressImages[i] != null)
+                {
+                    stationProgressImages[i].color = visual.normalFill;
+                    stationProgressImages[i].fillAmount = 0f;
+                }
             }
         }
 
@@ -802,6 +876,11 @@ namespace CelebrationDemo
                 if (label == null || label.root == null || label.anchor == null)
                 {
                     if (label != null && label.root != null) label.root.SetActive(false);
+                    continue;
+                }
+                if (runtime == null || pair.Key != runtime.CurrentTarget)
+                {
+                    label.root.SetActive(false);
                     continue;
                 }
                 if (camera == null)
@@ -1162,12 +1241,21 @@ namespace CelebrationDemo
             public int stack;
         }
 
+        sealed class StationProgressVisual
+        {
+            public int batchId;
+            public bool wasRunning;
+            public bool completionAnimating;
+            public float completionStartedAt;
+            public Color normalFill;
+            public Color normalBackground;
+        }
+
         sealed class WorldLabel
         {
             public GameObject root;
             public RectTransform rect;
             public Text title;
-            public Image fill;
             public Transform anchor;
         }
     }
