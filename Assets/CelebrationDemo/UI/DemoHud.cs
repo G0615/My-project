@@ -38,6 +38,7 @@ namespace CelebrationDemo
         readonly Dictionary<TargetView, WorldLabel> worldLabels = new Dictionary<TargetView, WorldLabel>();
 
         readonly List<Text> logEntries = new List<Text>();
+        readonly List<string> recentLogEventIds = new List<string>();
         readonly List<FloatingBubble> bubbles = new List<FloatingBubble>();
         readonly Text[] actorCardTexts = new Text[3];
         readonly Image[] stationProgressImages = new Image[2];
@@ -85,7 +86,10 @@ namespace CelebrationDemo
         {
             if (!initialized || action == null) return;
 
-            AddRecentLog(FormatActionMessage(action), LogColor(action));
+            // Record is already committed before EventRecorded is raised. Read
+            // the session window here so this event also follows the same
+            // idempotent path used by the per-frame HUD refresh.
+            RefreshRecentLogs();
 
             // Shared completion events carry a participant list.  Give every
             // real participant the same short actor feedback and keep the
@@ -178,9 +182,7 @@ namespace CelebrationDemo
         public void ResetView()
         {
             CloseModal();
-            for (var i = 0; i < logEntries.Count; i++)
-                if (logEntries[i] != null) Destroy(logEntries[i].gameObject);
-            logEntries.Clear();
+            ClearRecentLogs();
 
             for (var i = bubbles.Count - 1; i >= 0; i--)
                 DestroyBubbleAt(i);
@@ -247,6 +249,8 @@ namespace CelebrationDemo
         void BuildHud()
         {
             if (hudRoot != null) Destroy(hudRoot);
+            logEntries.Clear();
+            recentLogEventIds.Clear();
 
             hudRoot = new GameObject("HUD", typeof(RectTransform));
             hudRoot.transform.SetParent(canvas.transform, false);
@@ -445,6 +449,8 @@ namespace CelebrationDemo
         {
             if (runtime == null || runtime.Session == null) return;
 
+            RefreshRecentLogs();
+
             var active = runtime.ActiveActorId;
             if (activeActorText != null)
                 activeActorText.text = "当前主控  " + active + "号玩家";
@@ -602,7 +608,60 @@ namespace CelebrationDemo
             return "[ F ]  互动\n" + displayName;
         }
 
-        void AddRecentLog(string message, Color rowColor)
+        void RefreshRecentLogs()
+        {
+            if (!initialized || runtime == null || runtime.Session == null || logContent == null) return;
+
+            var history = runtime.Session.History;
+            var first = history == null ? 0 : Math.Max(0, history.Count - RecentLogLimit);
+            var recent = new List<ActionEvent>();
+            if (history != null)
+            {
+                for (var i = first; i < history.Count; i++)
+                {
+                    var action = history[i];
+                    if (action != null) recent.Add(action);
+                }
+            }
+
+            var ids = recent.Select(ActionEventKey).ToList();
+            if (ids.SequenceEqual(recentLogEventIds)) return;
+
+            ClearRecentLogs();
+            for (var i = 0; i < recent.Count; i++)
+            {
+                var action = recent[i];
+                AddRecentLogRow(FormatActionMessage(action), LogColor(action));
+                recentLogEventIds.Add(ids[i]);
+            }
+            if (logTitleText != null) logTitleText.text = "最近行为 · " + logEntries.Count + " / 100";
+            ScrollToLatest(logScroll);
+        }
+
+        void ClearRecentLogs()
+        {
+            if (logContent != null) logContent.gameObject.SetActive(false);
+            for (var i = 0; i < logEntries.Count; i++)
+            {
+                var entry = logEntries[i];
+                if (entry == null) continue;
+                entry.gameObject.SetActive(false);
+                Destroy(entry.gameObject);
+            }
+            logEntries.Clear();
+            recentLogEventIds.Clear();
+            if (logContent != null) logContent.gameObject.SetActive(true);
+            if (logTitleText != null) logTitleText.text = "最近行为 · 0 / 100";
+        }
+
+        static string ActionEventKey(ActionEvent action)
+        {
+            if (action == null) return string.Empty;
+            if (!string.IsNullOrEmpty(action.EventId)) return action.EventId;
+            return (action.ActivityId ?? string.Empty) + "#" + action.Sequence.ToString();
+        }
+
+        void AddRecentLogRow(string message, Color rowColor)
         {
             if (logContent == null) return;
             var row = AddText(logContent, message, 15, Color.white, TextAnchor.MiddleLeft,
@@ -616,14 +675,6 @@ namespace CelebrationDemo
             row.supportRichText = true;
             row.color = rowColor;
             logEntries.Add(row);
-            while (logEntries.Count > RecentLogLimit)
-            {
-                var old = logEntries[0];
-                logEntries.RemoveAt(0);
-                if (old != null) Destroy(old.gameObject);
-            }
-            if (logTitleText != null) logTitleText.text = "最近行为 · " + logEntries.Count + " / 100";
-            ScrollToLatest(logScroll);
         }
 
         void OpenModal(string title, string subtitle)
@@ -772,7 +823,46 @@ namespace CelebrationDemo
                     message = string.IsNullOrWhiteSpace(message) ? action.TargetText : message + "；" + action.TargetText;
             }
             if (string.IsNullOrWhiteSpace(message)) message = "记录了一次互动。";
+            if (!ContainsActorAttribution(message, action))
+            {
+                var attribution = ActorAttribution(action);
+                if (!string.IsNullOrEmpty(attribution)) message = attribution + "：" + message;
+            }
             return ColorizePlayers(message);
+        }
+
+        static bool ContainsActorAttribution(string message, ActionEvent action)
+        {
+            if (string.IsNullOrEmpty(message) || action == null) return false;
+            if (action.ActorId >= 1 && action.ActorId <= 3)
+                return message.IndexOf(action.ActorId + "号玩家", StringComparison.Ordinal) >= 0;
+            if (action.ActorId == 0 && action.ParticipantIds != null)
+            {
+                var participants = action.ParticipantIds
+                    .Where(id => id >= 1 && id <= 3)
+                    .Distinct()
+                    .ToArray();
+                return participants.Length > 0 && participants.All(id =>
+                    message.IndexOf(id + "号玩家", StringComparison.Ordinal) >= 0);
+            }
+            return false;
+        }
+
+        static string ActorAttribution(ActionEvent action)
+        {
+            if (action == null) return string.Empty;
+            if (action.ActorId >= 1 && action.ActorId <= 3)
+                return action.ActorId + "号玩家";
+            if (action.ActorId == 0 && action.ParticipantIds != null)
+            {
+                var participants = action.ParticipantIds
+                    .Where(id => id >= 1 && id <= 3)
+                    .Distinct()
+                    .Select(id => id + "号玩家")
+                    .ToArray();
+                if (participants.Length > 0) return "参与者 " + string.Join("、", participants);
+            }
+            return action.ActorId == 0 ? "公共行为" : string.Empty;
         }
 
         string ShortFeedback(string preferred, string fallback)

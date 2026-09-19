@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using CelebrationDemo;
 
@@ -21,6 +22,7 @@ namespace CelebrationDemo
             CakeIsDirectAndTitlesAreParticipationBased();
             CelebrationAwardsEveryActorOnceAndSupportsTrophyFlow();
             PersonalHistoryIsCompleteAndScoped();
+            RecentLogReadsDoNotRecordAgain();
             ResetStartsANewEmptyActivity();
             return checks;
         }
@@ -262,6 +264,34 @@ namespace CelebrationDemo
             Check(session.ActivityId != oldActivity && session.Now == 0d, "reset starts a new activity clock");
             Check(session.History.Count == 0 && !session.HasCelebrated, "reset clears history and settlement");
             Check(session.GetActor(1).TrophyStatus == TrophyStatus.Unawarded && session.Cake.FruitStyles[0] == 0, "reset clears trophies and cake");
+        }
+
+        static void RecentLogReadsDoNotRecordAgain()
+        {
+            var session = new DemoSession();
+            for (var i = 0; i < 105; i++)
+                session.Execute(1, new TargetSpec("home-" + i, TargetKind.HomeFruit));
+
+            var beforeRefreshes = session.History.Count;
+            var firstRefresh = ReadRecentWindow(session.History, 100);
+            var secondRefresh = ReadRecentWindow(session.History, 100);
+
+            Check(firstRefresh.Count == 100 && firstRefresh[0].Sequence == 6,
+                "recent log reads keep only the latest one hundred events");
+            Check(secondRefresh.Count == 100 && secondRefresh[0].EventId == firstRefresh[0].EventId,
+                "repeated recent log refresh reads the same event window");
+            Check(session.History.Count == beforeRefreshes,
+                "recent log refresh does not record another event");
+        }
+
+        static IReadOnlyList<ActionEvent> ReadRecentWindow(IReadOnlyList<ActionEvent> history, int limit)
+        {
+            if (history == null || limit <= 0) return Array.Empty<ActionEvent>();
+            var first = Math.Max(0, history.Count - limit);
+            var result = new List<ActionEvent>();
+            for (var i = first; i < history.Count; i++)
+                if (history[i] != null) result.Add(history[i]);
+            return result;
         }
 
         static void Check(bool condition, string description)
