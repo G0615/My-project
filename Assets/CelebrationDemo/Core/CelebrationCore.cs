@@ -93,7 +93,8 @@ namespace CelebrationDemo
         Master,
         Artist,
         Glutton,
-        Philanthropist
+        Philanthropist,
+        CaptureOfficer
     }
 
     [Serializable]
@@ -109,6 +110,7 @@ namespace CelebrationDemo
         public bool HasArtParticipation;
         public bool HasEaten;
         public bool HasDonated;
+        public bool HasCaptureParticipation;
         public bool HasPreparationParticipation;
         public TrophyStatus TrophyStatus;
         public TitleKind[] GrantedTitles;
@@ -673,7 +675,8 @@ namespace CelebrationDemo
             // Mark the window before publishing the event. Re-entrant UI/input
             // callbacks therefore cannot turn one steal into two successes.
             target.CaptureWindowConsumed = true;
-            return CaptureResult(captorId, targetActorId, true, "抓捕成功！");
+            var newlyQualified = Qualify(captor, TitleKind.CaptureOfficer);
+            return CaptureResult(captorId, targetActorId, true, "抓捕成功！", newlyQualified);
         }
 
         // Naming used by the runtime adapter; kept alongside CaptureExecute for
@@ -689,11 +692,13 @@ namespace CelebrationDemo
             return CaptureExecute(captorId, targetActorId);
         }
 
-        ActionOutcome CaptureResult(int captorId, int targetActorId, bool success, string message)
+        ActionOutcome CaptureResult(int captorId, int targetActorId, bool success, string message,
+            TitleKind[] newlyQualified = null)
         {
             RecordSimple(captorId, "actor-" + targetActorId,
                 captorId + "号玩家对" + targetActorId + "号玩家抓捕：" + (success ? "抓捕成功！" : "抓捕失败"),
-                "抓捕", success ? "成功" : "失败", null, null,
+                "抓捕", success ? "成功" : "失败", null,
+                newlyQualified: newlyQualified,
                 participantIds: success ? new[] { captorId, targetActorId } : new[] { captorId },
                 effectChange: success ? "目标本次偷吃窗口已关闭" : null,
                 targetActorId: targetActorId);
@@ -1146,6 +1151,10 @@ namespace CelebrationDemo
                 case TitleKind.Artist: had = actor.HasArtParticipation; actor.HasArtParticipation = true; break;
                 case TitleKind.Glutton: had = actor.HasEaten; actor.HasEaten = true; break;
                 case TitleKind.Philanthropist: had = actor.HasDonated; actor.HasDonated = true; break;
+                case TitleKind.CaptureOfficer:
+                    had = actor.HasCaptureParticipation;
+                    actor.HasCaptureParticipation = true;
+                    break;
                 default: had = true; break;
             }
             return had ? Array.Empty<TitleKind>() : new[] { title };
@@ -1158,6 +1167,7 @@ namespace CelebrationDemo
             if (actor.HasArtParticipation) result.Add(TitleKind.Artist);
             if (actor.HasEaten) result.Add(TitleKind.Glutton);
             if (actor.HasDonated) result.Add(TitleKind.Philanthropist);
+            if (actor.HasCaptureParticipation) result.Add(TitleKind.CaptureOfficer);
             return result.ToArray();
         }
 

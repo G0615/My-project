@@ -673,8 +673,10 @@ namespace CelebrationDemo
             var successEvent = session.History.Last(item => item.ActionType == "抓捕");
             Check(successEvent.Message.Contains("抓捕成功") && successEvent.ActorId == 1 &&
                 successEvent.TargetActorId == 2 &&
-                successEvent.ParticipantIds.SequenceEqual(new[] { 1, 2 }),
-                "capture success event identifies both players");
+                successEvent.ParticipantIds.SequenceEqual(new[] { 1, 2 }) &&
+                successEvent.NewlyQualifiedTitles.Contains(TitleKind.CaptureOfficer) &&
+                session.GetActor(1).HasCaptureParticipation,
+                "capture success event identifies both players and grants capture officer qualification");
 
             var repeated = session.Capture(1, 2);
             Check(!repeated.Success && repeated.TargetActorId == 2 &&

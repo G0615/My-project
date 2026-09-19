@@ -1221,6 +1221,7 @@ namespace CelebrationDemo
                 case TitleKind.Artist: return "艺术家";
                 case TitleKind.Glutton: return "馋鬼";
                 case TitleKind.Philanthropist: return "慈善家";
+                case TitleKind.CaptureOfficer: return "捕头";
                 default: return title.ToString();
             }
         }
