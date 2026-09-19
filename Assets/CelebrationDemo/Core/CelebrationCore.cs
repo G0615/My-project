@@ -53,6 +53,7 @@ namespace CelebrationDemo
         public double WorkSeconds = 10d;
         public float BaseSpeed = 10f;
         public double ChopsticksSeconds = 60d;
+        public double CaptureWindowSeconds = 10d;
         public double SlowSeconds = 10d;
         public int MaxSlowStacks = 10;
         public int ChopsticksCost = 10;
@@ -61,6 +62,7 @@ namespace CelebrationDemo
         // These aliases make the configuration pleasant to consume from small adapters.
         public double WorkDurationSeconds { get { return WorkSeconds; } set { WorkSeconds = value; } }
         public double ChopsticksDurationSeconds { get { return ChopsticksSeconds; } set { ChopsticksSeconds = value; } }
+        public double CaptureDurationSeconds { get { return CaptureWindowSeconds; } set { CaptureWindowSeconds = value; } }
         public double SlowDurationSeconds { get { return SlowSeconds; } set { SlowSeconds = value; } }
 
         public DemoConfig Clone()
@@ -70,6 +72,7 @@ namespace CelebrationDemo
                 WorkSeconds = WorkSeconds,
                 BaseSpeed = BaseSpeed,
                 ChopsticksSeconds = ChopsticksSeconds,
+                CaptureWindowSeconds = CaptureWindowSeconds,
                 SlowSeconds = SlowSeconds,
                 MaxSlowStacks = MaxSlowStacks,
                 ChopsticksCost = ChopsticksCost,
@@ -98,12 +101,15 @@ namespace CelebrationDemo
     {
         public int ActorId;
         public double ChopsticksExpiresAt;
+        public double CaptureWindowExpiresAt;
+        public bool CaptureWindowConsumed;
         public int SlowStacks;
         public double SlowExpiresAt;
         public bool HasCraftParticipation;
         public bool HasArtParticipation;
         public bool HasEaten;
         public bool HasDonated;
+        public bool HasPreparationParticipation;
         public TrophyStatus TrophyStatus;
         public TitleKind[] GrantedTitles;
 
@@ -225,6 +231,10 @@ namespace CelebrationDemo
         public int ActorId;
         public int[] ParticipantIds;
         public string TargetId;
+        // For player-to-player actions (currently capture), this is the stable
+        // actor identity of the other side. It is intentionally separate from
+        // TargetId, which remains the authored world-target identifier.
+        public int TargetActorId;
         public string Message;
         public string ActorText;
         public string TargetText;
@@ -258,6 +268,7 @@ namespace CelebrationDemo
                 ActorId = ActorId,
                 ParticipantIds = ParticipantIds == null ? Array.Empty<int>() : (int[])ParticipantIds.Clone(),
                 TargetId = TargetId,
+                TargetActorId = TargetActorId,
                 Message = Message,
                 ActorText = ActorText,
                 TargetText = TargetText,
@@ -294,6 +305,7 @@ namespace CelebrationDemo
         public bool OpenHistory;
         public bool OpenCelebration;
         public int ActorId;
+        public int TargetActorId;
         public bool Success;
 
         public ActionOutcome() { }
@@ -309,12 +321,42 @@ namespace CelebrationDemo
     }
 
     [Serializable]
+    public sealed class RedEnvelopeAllocation
+    {
+        public int ActorId;
+        public int Amount;
+
+        public RedEnvelopeAllocation() { }
+
+        public RedEnvelopeAllocation(int actorId, int amount)
+        {
+            ActorId = actorId;
+            Amount = amount;
+        }
+
+        public RedEnvelopeAllocation Clone()
+        {
+            return new RedEnvelopeAllocation(ActorId, Amount);
+        }
+    }
+
+    [Serializable]
     public sealed class CelebrationSnapshot
     {
         public string ActivityId;
         public double Time;
         public ActorState[] Actors;
         public CakeState Cake;
+        // The pool is an event-only celebration result; it is not a player
+        // balance and cannot be spent through this core API.
+        public int ChopsticksPoolTotal;
+        public int ChopsticksPoolSourceCount;
+        public int ChopsticksPoolSourceAmount;
+        public int[] ChopsticksPoolSourceActorIds;
+        public int[] ChopsticksPoolSourceAmounts;
+        public RedEnvelopeAllocation[] RedEnvelopeAllocations;
+        public bool RedEnvelopeSettled;
+        public string RedEnvelopeSettlementId;
 
         public CelebrationSnapshot Clone()
         {
@@ -323,7 +365,17 @@ namespace CelebrationDemo
                 ActivityId = ActivityId,
                 Time = Time,
                 Actors = Actors == null ? Array.Empty<ActorState>() : Actors.Select(a => a.Clone()).ToArray(),
-                Cake = Cake == null ? new CakeState() : Cake.Clone()
+                Cake = Cake == null ? new CakeState() : Cake.Clone(),
+                ChopsticksPoolTotal = ChopsticksPoolTotal,
+                ChopsticksPoolSourceCount = ChopsticksPoolSourceCount,
+                ChopsticksPoolSourceAmount = ChopsticksPoolSourceAmount,
+                ChopsticksPoolSourceActorIds = ChopsticksPoolSourceActorIds == null ? Array.Empty<int>() : (int[])ChopsticksPoolSourceActorIds.Clone(),
+                ChopsticksPoolSourceAmounts = ChopsticksPoolSourceAmounts == null ? Array.Empty<int>() : (int[])ChopsticksPoolSourceAmounts.Clone(),
+                RedEnvelopeAllocations = RedEnvelopeAllocations == null
+                    ? Array.Empty<RedEnvelopeAllocation>()
+                    : RedEnvelopeAllocations.Select(item => item == null ? new RedEnvelopeAllocation() : item.Clone()).ToArray(),
+                RedEnvelopeSettled = RedEnvelopeSettled,
+                RedEnvelopeSettlementId = RedEnvelopeSettlementId
             };
         }
     }
@@ -339,8 +391,12 @@ namespace CelebrationDemo
 
         readonly Dictionary<int, ActorState> actors = new Dictionary<int, ActorState>();
         readonly List<ActionEvent> history = new List<ActionEvent>();
+        readonly List<int> chopsticksPoolSourceActorIds = new List<int>();
+        readonly List<int> chopsticksPoolSourceAmounts = new List<int>();
         long nextSequence;
         int activityNumber;
+        int chopsticksPoolTotal;
+        Random envelopeRandom;
 
         public DemoConfig Config { get; private set; }
         public double Now { get; private set; }
@@ -351,6 +407,10 @@ namespace CelebrationDemo
         public CakeState Cake { get; private set; }
         public CelebrationSnapshot Celebration { get; private set; }
         public IReadOnlyList<ActionEvent> History { get { return history; } }
+        public int ChopsticksPoolTotal { get { return chopsticksPoolTotal; } }
+        public int ChopsticksPoolSourceCount { get { return chopsticksPoolSourceAmounts.Count; } }
+        public IReadOnlyList<int> ChopsticksPoolSourceActorIds { get { return chopsticksPoolSourceActorIds; } }
+        public IReadOnlyList<int> ChopsticksPoolSourceAmounts { get { return chopsticksPoolSourceAmounts; } }
 
         public event Action<ActionEvent> EventRecorded;
 
@@ -368,6 +428,10 @@ namespace CelebrationDemo
             HasCelebrated = false;
             Celebration = null;
             nextSequence = 0L;
+            chopsticksPoolTotal = 0;
+            chopsticksPoolSourceActorIds.Clear();
+            chopsticksPoolSourceAmounts.Clear();
+            envelopeRandom = new Random(1729 + activityNumber);
             history.Clear();
             actors.Clear();
             for (int id = FirstActorId; id <= LastActorId; id++)
@@ -411,6 +475,38 @@ namespace CelebrationDemo
             return actor != null && actor.ChopsticksExpiresAt > Now;
         }
 
+        /// <summary>Returns true while the actor's most recent steal can still be captured.</summary>
+        public bool HasCaptureWindow(int actorId)
+        {
+            var actor = GetActor(actorId);
+            if (actor == null) return false;
+            ExpireActor(actor);
+            return actor.CaptureWindowExpiresAt > Now && !actor.CaptureWindowConsumed;
+        }
+
+        /// <summary>
+        /// Resolves the independent E interaction. A valid chopstick holder sees
+        /// the prompt for every other actor; whether the target has a live steal
+        /// window is deliberately hidden until execution.
+        /// </summary>
+        public InteractionOffer ResolveCapture(int captorId, int targetActorId)
+        {
+            var captor = GetActor(captorId);
+            var target = GetActor(targetActorId);
+            if (captor == null) return new InteractionOffer("无效角色", false);
+            if (target == null) return new InteractionOffer("无效目标", false);
+            ExpireActor(captor);
+            if (captorId == targetActorId) return new InteractionOffer("不能抓捕自己", false);
+            if (!HasChopsticks(captorId)) return new InteractionOffer("请先获得筷子", false);
+            return new InteractionOffer("抓捕" + targetActorId + "号玩家", true);
+        }
+
+        // Alias kept for adapters that use the verb-first naming convention.
+        public InteractionOffer CaptureResolve(int captorId, int targetActorId)
+        {
+            return ResolveCapture(captorId, targetActorId);
+        }
+
         public InteractionOffer Resolve(int actorId, TargetSpec target)
         {
             if (target == null) return new InteractionOffer("无可用目标", false);
@@ -449,7 +545,9 @@ namespace CelebrationDemo
                 case TargetKind.WhipStation:
                     return StationOffer("打发奶油");
                 case TargetKind.Chopsticks:
-                    return new InteractionOffer("购买筷子（金币-10）", true);
+                    return HasChopsticks(actorId)
+                        ? new InteractionOffer("筷子有效期内不可重复购买", false)
+                        : new InteractionOffer("购买筷子（金币-" + Config.ChopsticksCost + "）", true);
                 case TargetKind.CakeFruit:
                     return ValidCakeIndex(target.Index) ? new InteractionOffer("贴果切", true) : new InteractionOffer("无效果切挂点", false);
                 case TargetKind.CakeCream:
@@ -493,6 +591,7 @@ namespace CelebrationDemo
             switch (target.Kind)
             {
                 case TargetKind.HomeFruit:
+                    actor.HasPreparationParticipation = true;
                     RecordSimple(actorId, target.Id,
                         actorId + "号玩家领取了[水果]×1；" + actorId + "号玩家[水果]+1。", "领取水果", "已领取",
                         new[] { actorId + "号玩家[水果]+1" }, null);
@@ -502,6 +601,7 @@ namespace CelebrationDemo
                 case TargetKind.HomeOrange:
                     return CollectHomeFruit(actorId, target, "橘子", "领取橘子");
                 case TargetKind.ShopEgg:
+                    actor.HasPreparationParticipation = true;
                     RecordSimple(actorId, target.Id,
                         actorId + "号玩家购买了[鸡蛋]×1；" + actorId + "号玩家[金币]-1，" + actorId + "号玩家[鸡蛋]+1。", "购买鸡蛋", "已购买",
                         new[] { actorId + "号玩家[金币]-1", actorId + "号玩家[鸡蛋]+1" }, null);
@@ -545,8 +645,70 @@ namespace CelebrationDemo
             }
         }
 
+        /// <summary>
+        /// Attempts the independent E capture action. Capture never changes
+        /// movement effects, station membership, or public food state.
+        /// </summary>
+        public ActionOutcome Capture(int captorId, int targetActorId)
+        {
+            return CaptureExecute(captorId, targetActorId);
+        }
+
+        public ActionOutcome CaptureExecute(int captorId, int targetActorId)
+        {
+            var captor = GetActor(captorId);
+            var target = GetActor(targetActorId);
+            if (captor == null) return Fail(captorId, "无效角色", targetActorId);
+            if (target == null) return Fail(captorId, "无效目标", targetActorId);
+            if (captorId == targetActorId)
+                return CaptureResult(captorId, targetActorId, false, "抓捕失败：不能抓捕自己");
+
+            ExpireActor(captor);
+            ExpireActor(target);
+            if (!HasChopsticks(captorId))
+                return CaptureResult(captorId, targetActorId, false, "抓捕失败：请先获得筷子");
+            if (!HasCaptureWindow(targetActorId))
+                return CaptureResult(captorId, targetActorId, false, "抓捕失败");
+
+            // Mark the window before publishing the event. Re-entrant UI/input
+            // callbacks therefore cannot turn one steal into two successes.
+            target.CaptureWindowConsumed = true;
+            return CaptureResult(captorId, targetActorId, true, "抓捕成功！");
+        }
+
+        // Naming used by the runtime adapter; kept alongside CaptureExecute for
+        // source compatibility with small external callers.
+        public ActionOutcome ExecuteCapture(int captorId, int targetActorId)
+        {
+            return CaptureExecute(captorId, targetActorId);
+        }
+
+        public ActionOutcome Capture(int captorId, int targetActorId, double now)
+        {
+            if (now > Now) Advance(now);
+            return CaptureExecute(captorId, targetActorId);
+        }
+
+        ActionOutcome CaptureResult(int captorId, int targetActorId, bool success, string message)
+        {
+            RecordSimple(captorId, "actor-" + targetActorId,
+                captorId + "号玩家对" + targetActorId + "号玩家抓捕：" + (success ? "抓捕成功！" : "抓捕失败"),
+                "抓捕", success ? "成功" : "失败", null, null,
+                participantIds: success ? new[] { captorId, targetActorId } : new[] { captorId },
+                effectChange: success ? "目标本次偷吃窗口已关闭" : null,
+                targetActorId: targetActorId);
+            var outcome = success
+                ? Success(captorId, message)
+                : Fail(captorId, message, targetActorId);
+            outcome.TargetActorId = targetActorId;
+            return outcome;
+        }
+
         ActionOutcome CollectHomeFruit(int actorId, TargetSpec target, string item, string actionType)
         {
+            var actor = GetActor(actorId);
+            if (actor == null) return Fail(actorId, "无效角色");
+            actor.HasPreparationParticipation = true;
             RecordSimple(actorId, target.Id,
                 actorId + "号玩家领取了[" + item + "]×1；" + actorId + "号玩家[" + item + "]+1。",
                 actionType, "已领取",
@@ -659,6 +821,7 @@ namespace CelebrationDemo
                 station.LastAdvancedAt = Now;
                 station.ParticipantIds.Clear();
                 station.ParticipantIds.Add(actorId);
+                actor.HasPreparationParticipation = true;
                 var newlyQualified = Qualify(actor, TitleKind.Master);
                 RecordSimple(actorId, station.Id,
                     actorId + "号玩家开始[" + action + "]。",
@@ -678,6 +841,7 @@ namespace CelebrationDemo
             }
 
             station.ParticipantIds.Add(actorId);
+            actor.HasPreparationParticipation = true;
             var newlyJoinedQualification = Qualify(actor, TitleKind.Master);
             RecordSimple(actorId, station.Id,
                 actorId + "号玩家加入本批[" + action + "]协作。",
@@ -690,7 +854,13 @@ namespace CelebrationDemo
         ActionOutcome BuyChopsticks(int actorId, TargetSpec target)
         {
             var actor = GetActor(actorId);
+            if (actor == null) return Fail(actorId, "无效角色");
+            if (HasChopsticks(actorId)) return Fail(actorId, "筷子有效期内不可重复购买");
             actor.ChopsticksExpiresAt = Now + Math.Max(0d, Config.ChopsticksSeconds);
+            actor.HasPreparationParticipation = true;
+            chopsticksPoolTotal += Math.Max(0, Config.ChopsticksCost);
+            chopsticksPoolSourceActorIds.Add(actorId);
+            chopsticksPoolSourceAmounts.Add(Math.Max(0, Config.ChopsticksCost));
             RecordSimple(actorId, target.Id,
                 actorId + "号玩家购买了[筷子]×1；" + actorId + "号玩家[金币]-" + Config.ChopsticksCost + "，" + actorId + "号玩家[筷子]+1。",
                 "购买筷子", "筷子区",
@@ -702,6 +872,7 @@ namespace CelebrationDemo
         ActionOutcome Donate(int actorId, TargetSpec target, string item)
         {
             var actor = GetActor(actorId);
+            actor.HasPreparationParticipation = true;
             actor.DonationCount++;
             var newlyQualified = Qualify(actor, TitleKind.Philanthropist);
             RecordSimple(actorId, target.Id,
@@ -718,9 +889,12 @@ namespace CelebrationDemo
             var actor = GetActor(actorId);
             if (!HasChopsticks(actorId)) return Fail(actorId, "请先获得筷子");
 
+            actor.HasPreparationParticipation = true;
             var before = GetSpeedWithoutExpiry(actor);
             actor.SlowStacks = Math.Min(Math.Max(0, Config.MaxSlowStacks), actor.SlowStacks + 1);
             actor.SlowExpiresAt = Now + Math.Max(0d, Config.SlowSeconds);
+            actor.CaptureWindowExpiresAt = Now + Math.Max(0d, Config.CaptureWindowSeconds);
+            actor.CaptureWindowConsumed = false;
             var after = GetSpeedWithoutExpiry(actor);
             actor.EatCount++;
             var newlyQualified = Qualify(actor, TitleKind.Glutton);
@@ -734,7 +908,7 @@ namespace CelebrationDemo
                 actorId + "号玩家偷吃了[" + item + "]×1；广场[" + item + "]-1，" + actorId + "号玩家[移速]" + speedDelta.ToString("+0.###;-0.###;0") + "（" + speedText + "）。",
                 "偷吃", "物品",
                 new[] { "广场[" + item + "]-1", actorId + "号玩家[偷吃次数]+1" }, newlyQualified,
-                effectChange: speedText);
+                effectChange: speedText + "；可抓捕至" + actor.CaptureWindowExpiresAt.ToString("0.###"));
             return Success(actorId, "偷吃" + item + "，移速" + speedText);
         }
 
@@ -742,6 +916,7 @@ namespace CelebrationDemo
         {
             if (!ValidCakeIndex(target.Index)) return Fail(actorId, "无效果切挂点");
             var actor = GetActor(actorId);
+            actor.HasPreparationParticipation = true;
             Cake.FruitStyles[target.Index] = Cake.FruitStyles[target.Index] % 3 + 1;
             Cake.FruitAuthors[target.Index] = actorId;
             actor.FruitDecorationCount++;
@@ -757,6 +932,7 @@ namespace CelebrationDemo
         {
             if (!ValidCakeIndex(target.Index)) return Fail(actorId, "无效奶油区域");
             var actor = GetActor(actorId);
+            actor.HasPreparationParticipation = true;
             Cake.CreamColors[target.Index] = Cake.CreamColors[target.Index] % 4 + 1;
             Cake.CreamAuthors[target.Index] = actorId;
             actor.CreamDecorationCount++;
@@ -786,18 +962,35 @@ namespace CelebrationDemo
                 recipient.HomeSlotId = "trophy-" + id;
                 recipient.GrantedTitles = TitlesFor(recipient);
             }
+
+            var redEnvelopeAllocations = BuildRedEnvelopeAllocations();
+            var allocationText = redEnvelopeAllocations.Length == 0
+                ? "无符合条件参与者"
+                : string.Join("、", redEnvelopeAllocations
+                    .Select(item => item.ActorId + "号玩家 +" + item.Amount)
+                    .ToArray());
             Celebration = new CelebrationSnapshot
             {
                 ActivityId = ActivityId,
                 Time = Now,
                 Actors = actors.Values.OrderBy(a => a.ActorId).Select(a => a.Clone()).ToArray(),
-                Cake = Cake.Clone()
+                Cake = Cake.Clone(),
+                ChopsticksPoolTotal = chopsticksPoolTotal,
+                ChopsticksPoolSourceCount = chopsticksPoolSourceAmounts.Count,
+                ChopsticksPoolSourceAmount = chopsticksPoolTotal,
+                ChopsticksPoolSourceActorIds = chopsticksPoolSourceActorIds.ToArray(),
+                ChopsticksPoolSourceAmounts = chopsticksPoolSourceAmounts.ToArray(),
+                RedEnvelopeAllocations = redEnvelopeAllocations,
+                RedEnvelopeSettled = true,
+                RedEnvelopeSettlementId = ActivityId + "-red-envelope"
             };
 
             RecordSimple(actorId, targetId,
-                actorId + "号玩家举办了庆典。三人称号已按本轮参与资格结算。",
+                actorId + "号玩家举办了庆典。筷子售卖募集金币 " + chopsticksPoolTotal +
+                "，随机红包：" + allocationText + "。三人称号已按本轮参与资格结算。",
                 "举办庆典", "庆典", null, null,
-                participantIds: new[] { 1, 2, 3 }, effectChange: "庆典快照已保存");
+                participantIds: new[] { 1, 2, 3 },
+                effectChange: "庆典快照已保存；红包池" + chopsticksPoolTotal);
 
             foreach (var id in new[] { 1, 2, 3 })
             {
@@ -810,6 +1003,33 @@ namespace CelebrationDemo
                     null, recipient.GrantedTitles);
             }
             return Success(actorId, "庆典已举办，三人各获得一座奖杯", false, true);
+        }
+
+        RedEnvelopeAllocation[] BuildRedEnvelopeAllocations()
+        {
+            var eligible = actors.Values
+                .Where(actor => actor != null && actor.HasPreparationParticipation)
+                .OrderBy(actor => actor.ActorId)
+                .ToArray();
+            if (eligible.Length == 0 || chopsticksPoolTotal <= 0)
+                return Array.Empty<RedEnvelopeAllocation>();
+
+            // The authored demo always has a pool large enough for its three
+            // actors. Keep the total exact for defensive custom configurations;
+            // when a custom pool is smaller than the number of participants,
+            // the available positive units are assigned one at a time.
+            var allocations = eligible.Select(actor => new RedEnvelopeAllocation(actor.ActorId, 0)).ToArray();
+            var remaining = chopsticksPoolTotal;
+            var positiveCount = Math.Min(eligible.Length, remaining);
+            for (var i = 0; i < positiveCount; i++)
+                allocations[i].Amount = 1;
+            remaining -= positiveCount;
+            while (remaining > 0)
+            {
+                allocations[envelopeRandom.Next(eligible.Length)].Amount++;
+                remaining--;
+            }
+            return allocations;
         }
 
         ActionOutcome ExecuteTrophy(int actorId, TargetSpec target)
@@ -956,6 +1176,13 @@ namespace CelebrationDemo
             return new ActionOutcome(message, false, false, actorId, false);
         }
 
+        ActionOutcome Fail(int actorId, string message, int targetActorId)
+        {
+            var outcome = Fail(actorId, message);
+            outcome.TargetActorId = targetActorId;
+            return outcome;
+        }
+
         void RecordShared(int actorId, string targetId, string message, string actionType, string messageKind,
             int[] participantIds, string[] deltas, string[] statChanges, string effectChange)
         {
@@ -965,16 +1192,17 @@ namespace CelebrationDemo
 
         void RecordSimple(int actorId, string targetId, string message, string actionType, string messageKind,
             string[] deltas, TitleKind[] newlyQualified, int[] participantIds = null, string effectChange = null,
-            string[] statChanges = null, TitleKind[] grantedTitles = null)
+            string[] statChanges = null, TitleKind[] grantedTitles = null, int targetActorId = 0)
         {
             Record(actorId, targetId, message, actionType, messageKind,
                 participantIds ?? Array.Empty<int>(), deltas ?? Array.Empty<string>(), statChanges ?? Array.Empty<string>(),
-                newlyQualified ?? Array.Empty<TitleKind>(), grantedTitles ?? Array.Empty<TitleKind>(), effectChange);
+                newlyQualified ?? Array.Empty<TitleKind>(), grantedTitles ?? Array.Empty<TitleKind>(), effectChange,
+                targetActorId);
         }
 
         void Record(int actorId, string targetId, string message, string actionType, string messageKind,
             int[] participantIds, string[] deltas, string[] statChanges, TitleKind[] newlyQualified,
-            TitleKind[] grantedTitles, string effectChange)
+            TitleKind[] grantedTitles, string effectChange, int targetActorId = 0)
         {
             var sequence = ++nextSequence;
             var safeParticipants = participantIds == null ? Array.Empty<int>() : (int[])participantIds.Clone();
@@ -988,6 +1216,7 @@ namespace CelebrationDemo
                 ActorId = actorId,
                 ParticipantIds = safeParticipants,
                 TargetId = targetId ?? string.Empty,
+                TargetActorId = targetActorId,
                 Message = message ?? string.Empty,
                 ActorText = ComposeActorText(actorId, safeParticipants, actionType, safeDeltas),
                 TargetText = ComposeTargetText(targetId, actionType, safeDeltas),

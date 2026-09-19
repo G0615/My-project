@@ -66,6 +66,8 @@ namespace CelebrationDemo
         Text celebrationHintText;
         GameObject celebrationCountdownRoot;
         Text celebrationCountdownText;
+        GameObject capturePromptRoot;
+        Text capturePromptText;
 
         bool initialized;
         bool modalOpen;
@@ -117,6 +119,16 @@ namespace CelebrationDemo
                     ActorFeedback(action), ActorColor(action.ActorId));
             }
 
+            // A successful capture is the one action that also gives the other
+            // player a head message. Failed attempts stay private to the
+            // catcher, matching the interaction rule in the design document.
+            if (IsCaptureSuccess(action) && action.TargetActorId >= 1 && action.TargetActorId <= 3)
+            {
+                var target = FindActor(action.TargetActorId);
+                SpawnBubble(target != null ? ActorAnchor(target) : null,
+                    "被抓捕了！", ActorColor(action.TargetActorId));
+            }
+
         }
 
         /// <summary>Shows the complete personal history for the actor who viewed a trophy.</summary>
@@ -166,6 +178,25 @@ namespace CelebrationDemo
                 var state = runtime.Session.GetActor(actorId);
                 var title = actorId + "号玩家    " + FormatTitles(state);
                 AddModalRow(title + "    奖杯 +1", ActorColor(actorId), true);
+            }
+            var snapshot = runtime.Session.Celebration;
+            if (snapshot != null && snapshot.RedEnvelopeSettled)
+            {
+                AddModalRow("筷子售卖募集金币 " + snapshot.ChopsticksPoolTotal + " · 随机红包已结算一次", Accent, true);
+                var allocations = snapshot.RedEnvelopeAllocations ?? Array.Empty<RedEnvelopeAllocation>();
+                if (allocations.Length == 0)
+                {
+                    AddModalRow("暂无符合条件的参与者。", MutedText, false);
+                }
+                else
+                {
+                    foreach (var allocation in allocations)
+                    {
+                        if (allocation == null) continue;
+                        AddModalRow(allocation.ActorId + "号玩家    红包 +" + allocation.Amount,
+                            ActorColor(allocation.ActorId), false);
+                    }
+                }
             }
             AddModalRow("后续可回到家园放置奖杯，再次按 F 查看个人完整回顾。", MutedText, false);
             if (celebrationHintText != null)
@@ -264,6 +295,7 @@ namespace CelebrationDemo
             BuildCelebrationCountdown(hudRect);
             BuildActorStrip(hudRect);
             BuildControlHint(hudRect);
+            BuildCapturePrompt(hudRect);
             BuildLogPanel(hudRect);
             BuildWorldBubbles(hudRect);
             BuildModal(hudRect);
@@ -323,9 +355,22 @@ namespace CelebrationDemo
         {
             var panel = Panel(parent, "操作说明", new Vector2(0.72f, 0.025f), new Vector2(0.98f, 0.18f), PanelColor);
             controlText = AddText(panel,
-                "WASD / 方向键  移动\n1 / 2 / 3  切换角色\nF  互动     Esc  关闭回顾\nR  重置本轮",
+                "WASD / 方向键  移动\n1 / 2 / 3  切换角色\nF  互动    E  抓捕\nEsc  关闭回顾   R  重置本轮",
                 HudFontSize, MutedText, TextAnchor.MiddleLeft,
                 new Vector2(0.08f, 0.08f), new Vector2(0.92f, 0.92f));
+        }
+
+        void BuildCapturePrompt(RectTransform parent)
+        {
+            capturePromptRoot = Panel(parent, "抓捕提示", new Vector2(0.72f, 0.20f),
+                new Vector2(0.98f, 0.28f), new Color(0.16f, 0.08f, 0.12f, 0.92f)).gameObject;
+            capturePromptText = AddText(capturePromptRoot.transform, "", HudFontSize,
+                new Color(1f, 0.62f, 0.7f, 1f), TextAnchor.MiddleCenter,
+                new Vector2(0.03f, 0.03f), new Vector2(0.97f, 0.97f));
+            capturePromptText.fontStyle = FontStyle.Bold;
+            capturePromptText.horizontalOverflow = HorizontalWrapMode.Overflow;
+            capturePromptText.verticalOverflow = VerticalWrapMode.Overflow;
+            capturePromptRoot.SetActive(false);
         }
 
         void BuildLogPanel(RectTransform parent)
@@ -436,6 +481,7 @@ namespace CelebrationDemo
             if (runtime == null || runtime.Session == null) return;
 
             RefreshRecentLogs();
+            RefreshCapturePrompt();
 
             var active = runtime.ActiveActorId;
             for (var actorId = 1; actorId <= 3; actorId++)
@@ -460,6 +506,17 @@ namespace CelebrationDemo
                 actorCardTexts[actorId - 1].color = ActorColor(actorId);
             }
 
+        }
+
+        void RefreshCapturePrompt()
+        {
+            if (capturePromptRoot == null || capturePromptText == null || runtime == null || runtime.Session == null)
+                return;
+            var target = runtime.CurrentCaptureTarget;
+            var visible = target != null && runtime.Session.HasChopsticks(runtime.ActiveActorId);
+            capturePromptRoot.SetActive(visible);
+            if (visible)
+                capturePromptText.text = "[E]抓捕 " + target.ActorId + "号玩家";
         }
 
         string ProcessingStatus(int actorId)
@@ -776,11 +833,27 @@ namespace CelebrationDemo
         string ActorFeedback(ActionEvent action)
         {
             if (action == null) return "完成";
+            if (IsCaptureSuccess(action)) return "抓捕成功！";
+            if (IsCaptureFailure(action)) return "抓捕失败";
             if (string.Equals(action.ActionType, "切水果完成统计", StringComparison.Ordinal))
                 return "切水果成功";
             if (string.Equals(action.ActionType, "打发奶油完成统计", StringComparison.Ordinal))
                 return "打发奶油成功";
             return ShortFeedback(action.ActorText, action.Message, action.TargetId);
+        }
+
+        static bool IsCaptureSuccess(ActionEvent action)
+        {
+            return action != null &&
+                (string.Equals(action.ActionType, "抓捕成功", StringComparison.Ordinal) ||
+                 (action.Message ?? string.Empty).IndexOf("抓捕成功", StringComparison.Ordinal) >= 0);
+        }
+
+        static bool IsCaptureFailure(ActionEvent action)
+        {
+            return action != null &&
+                (string.Equals(action.ActionType, "抓捕失败", StringComparison.Ordinal) ||
+                 (action.Message ?? string.Empty).IndexOf("抓捕失败", StringComparison.Ordinal) >= 0);
         }
 
         void UpdateBubbles()
@@ -1001,7 +1074,7 @@ namespace CelebrationDemo
             {
                 "举办庆典", "颁发奖杯", "放置奖杯", "查看活动回顾", "查看庆典结果",
                 "贴果切", "抹奶油", "切水果", "打发奶油", "领取", "购买", "捐献",
-                "偷吃", "开始", "加入", "完成", "查看", "获得筷子"
+                "偷吃", "抓捕", "开始", "加入", "完成", "查看", "获得筷子"
             };
             if (action != null && !string.IsNullOrEmpty(action.ActionType))
                 actionTokens.Add(action.ActionType);

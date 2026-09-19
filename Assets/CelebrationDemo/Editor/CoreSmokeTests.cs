@@ -26,8 +26,11 @@ namespace CelebrationDemo
             SharedWorkIsUniqueAndKeepsParticipants();
             SharedWorkUsesOneTwoThreePersonDurations();
             EffectsUseIndependentDeadlinesAndRealDeltas();
+            ChopsticksPurchaseIsSingleUseUntilExpiryAndFeedsPool();
+            CaptureWindowIsSingleSuccessAndRefreshesOnNewSteal();
             CakeIsDirectAndTitlesAreParticipationBased();
             CelebrationAwardsEveryActorOnceAndSupportsTrophyFlow();
+            CelebrationSettlesTheChopsticksPoolOnceForPreparedActors();
             PersonalHistoryIsCompleteAndScoped();
             RecentLogReadsDoNotRecordAgain();
             FeedbackFieldsStayHumanReadableAndHudUsesTheirLifecycle();
@@ -611,6 +614,87 @@ namespace CelebrationDemo
             Check(refresh.GetSpeed(1) == 10f, "refreshed shared slow deadline clears all layers together");
         }
 
+        static void ChopsticksPurchaseIsSingleUseUntilExpiryAndFeedsPool()
+        {
+            var session = new DemoSession(new DemoConfig { ChopsticksSeconds = 5d });
+            var chopsticks = new TargetSpec("chopsticks", TargetKind.Chopsticks);
+
+            Check(session.Resolve(1, chopsticks).CanExecute, "fresh actor can buy chopsticks");
+            Check(session.Execute(1, chopsticks).Success, "first chopsticks purchase succeeds");
+            var eventCount = session.History.Count;
+            var expiresAt = session.GetActor(1).ChopsticksExpiresAt;
+            Check(!session.Resolve(1, chopsticks).CanExecute,
+                "active chopsticks resolve as unavailable for a repeated purchase");
+            var repeat = session.Execute(1, chopsticks);
+            Check(!repeat.Success && session.History.Count == eventCount &&
+                session.GetActor(1).ChopsticksExpiresAt == expiresAt,
+                "repeated active purchase neither charges nor refreshes");
+
+            session.Advance(5d);
+            Check(session.Resolve(1, chopsticks).CanExecute, "expired chopsticks can be purchased again");
+            Check(session.Execute(1, chopsticks).Success &&
+                session.History.Count(item => item.ActionType == "购买筷子") == 2,
+                "purchase resumes after expiry");
+            Check(session.ChopsticksPoolTotal == 20 && session.ChopsticksPoolSourceCount == 2 &&
+                session.ChopsticksPoolSourceActorIds.SequenceEqual(new[] { 1, 1 }) &&
+                session.ChopsticksPoolSourceAmounts.SequenceEqual(new[] { 10, 10 }),
+                "each completed chopsticks sale contributes one source entry to the pool");
+        }
+
+        static void CaptureWindowIsSingleSuccessAndRefreshesOnNewSteal()
+        {
+            var session = new DemoSession(new DemoConfig
+            {
+                ChopsticksSeconds = 60d,
+                CaptureWindowSeconds = 10d,
+                SlowSeconds = 30d
+            });
+            var chopsticks = new TargetSpec("chopsticks", TargetKind.Chopsticks);
+            var fruit = new TargetSpec("fruit-pile", TargetKind.FruitPile);
+            var cut = new TargetSpec("cut", TargetKind.CutStation);
+
+            session.Execute(1, chopsticks);
+            session.Execute(2, chopsticks);
+            session.Execute(2, cut);
+            session.Execute(2, fruit);
+            Check(session.GetActor(2).CaptureWindowExpiresAt == 10d &&
+                !session.GetActor(2).CaptureWindowConsumed &&
+                session.IsActorProcessing(2),
+                "stealing opens a ten-second window without leaving processing");
+            Check(session.ResolveCapture(1, 2).CanExecute,
+                "a chopstick holder sees capture for every other actor");
+
+            var success = session.ExecuteCapture(1, 2);
+            Check(success.Success && success.TargetActorId == 2 &&
+                session.GetActor(2).CaptureWindowConsumed &&
+                session.GetActor(2).SlowStacks == 1 &&
+                session.IsActorProcessing(2),
+                "capture succeeds once and preserves slow effect and processing");
+            var successEvent = session.History.Last(item => item.ActionType == "抓捕");
+            Check(successEvent.Message.Contains("抓捕成功") && successEvent.ActorId == 1 &&
+                successEvent.TargetActorId == 2 &&
+                successEvent.ParticipantIds.SequenceEqual(new[] { 1, 2 }),
+                "capture success event identifies both players");
+
+            var repeated = session.Capture(1, 2);
+            Check(!repeated.Success && repeated.TargetActorId == 2 &&
+                session.History.Last(item => item.Message.Contains("抓捕失败")).TargetActorId == 2,
+                "the same steal cannot be captured successfully twice");
+
+            session.Execute(2, fruit);
+            Check(session.GetActor(2).CaptureWindowExpiresAt == 10d &&
+                !session.GetActor(2).CaptureWindowConsumed,
+                "a new steal refreshes and reopens the capture window");
+            var second = session.CaptureExecute(1, 2);
+            Check(second.Success && session.GetActor(2).SlowStacks == 2 &&
+                session.IsActorProcessing(2) &&
+                session.History.Count(item => item.ActionType == "抓捕" && item.Message.Contains("抓捕成功")) == 2,
+                "the refreshed window can be captured once again");
+
+            session.Advance(10d);
+            Check(!session.HasCaptureWindow(2), "capture window closes after ten seconds");
+        }
+
         static void CakeIsDirectAndTitlesAreParticipationBased()
         {
             var session = new DemoSession();
@@ -665,6 +749,45 @@ namespace CelebrationDemo
             var inspect = session.Execute(1, trophy1);
             Check(inspect.OpenHistory && session.GetActor(1).TrophyStatus == TrophyStatus.Placed, "placed trophy opens history without changing status");
             Check(session.History.Count(item => item.ActionType == "查看奖杯") == 1, "inspect is recorded once per F");
+        }
+
+        static void CelebrationSettlesTheChopsticksPoolOnceForPreparedActors()
+        {
+            var session = new DemoSession();
+            var chopsticks = new TargetSpec("chopsticks", TargetKind.Chopsticks);
+            session.Execute(1, chopsticks);
+            session.Execute(2, chopsticks);
+            session.Execute(1, new TargetSpec("home", TargetKind.HomeFruit));
+            session.Execute(2, new TargetSpec("cake-fruit-1", TargetKind.CakeFruit, 0));
+
+            var first = session.Execute(3, new TargetSpec("celebration", TargetKind.Celebration));
+            Check(first.Success && session.Celebration != null &&
+                session.Celebration.RedEnvelopeSettled &&
+                session.Celebration.RedEnvelopeSettlementId == session.ActivityId + "-red-envelope",
+                "first celebration saves a settled red envelope snapshot");
+            var snapshot = session.Celebration.Clone();
+            Check(snapshot.ChopsticksPoolTotal == 20 &&
+                snapshot.ChopsticksPoolSourceCount == 2 &&
+                snapshot.ChopsticksPoolSourceAmount == 20 &&
+                snapshot.ChopsticksPoolSourceActorIds.SequenceEqual(new[] { 1, 2 }) &&
+                snapshot.ChopsticksPoolSourceAmounts.SequenceEqual(new[] { 10, 10 }),
+                "snapshot records chopsticks pool source and total");
+            Check(snapshot.RedEnvelopeAllocations.Length == 2 &&
+                snapshot.RedEnvelopeAllocations.All(item => item.Amount > 0) &&
+                snapshot.RedEnvelopeAllocations.Sum(item => item.Amount) == 20 &&
+                snapshot.RedEnvelopeAllocations.Select(item => item.ActorId).SequenceEqual(new[] { 1, 2 }),
+                "prepared actors receive random positive allocations summing to the pool");
+            Check(session.History.Any(item => item.ActionType == "举办庆典" &&
+                item.Message.Contains("筷子售卖募集金币 20") &&
+                item.Message.Contains("随机红包：")),
+                "celebration history explains pool source and allocation");
+
+            var historyCount = session.History.Count;
+            var repeated = session.Execute(1, new TargetSpec("celebration", TargetKind.Celebration));
+            Check(repeated.OpenCelebration && session.History.Count == historyCount &&
+                session.Celebration.RedEnvelopeAllocations.Select(item => item.Amount)
+                    .SequenceEqual(snapshot.RedEnvelopeAllocations.Select(item => item.Amount)),
+                "repeated celebration reopens the same envelope snapshot without settling again");
         }
 
         static void PersonalHistoryIsCompleteAndScoped()

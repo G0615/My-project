@@ -17,6 +17,7 @@ namespace CelebrationDemo
         public DemoSession Session { get; private set; }
         public int ActiveActorId { get; private set; } = 1;
         public TargetView CurrentTarget { get; private set; }
+        public ActorView CurrentCaptureTarget { get; private set; }
 
         const float SelectionDistanceEpsilon = 0.01f;
         const float SelectionFacingEpsilon = 0.001f;
@@ -24,6 +25,7 @@ namespace CelebrationDemo
         const float CelebrationFireworksSeconds = 5f;
         const float CelebrationWalkSpeed = 12f;
         const float CelebrationCameraPitch = 10f;
+        const float CaptureDistance = 2.4f;
         static readonly Vector3 CelebrationFocus = new Vector3(0f, 1.2f, 2.4f);
         static readonly Vector3[] CelebrationActorSpots =
         {
@@ -104,8 +106,11 @@ namespace CelebrationDemo
             RouteMovement(movement);
 
             SetTarget(blocked ? null : FindTarget());
+            SetCaptureTarget(blocked ? null : FindCaptureTarget());
             if (!blocked && !switched && keyboard != null && keyboard.fKey.wasPressedThisFrame)
                 Interact();
+            if (!blocked && !switched && keyboard != null && keyboard.eKey.wasPressedThisFrame)
+                Capture();
             RefreshWorld();
         }
 
@@ -149,6 +154,7 @@ namespace CelebrationDemo
                 if (actor != null) actor.SetActiveVisual(actor.ActorId == actorId);
             if (CameraRig != null) CameraRig.SetTarget(selected.transform);
             SetTarget(null);
+            SetCaptureTarget(null);
         }
 
         public void Interact()
@@ -171,6 +177,18 @@ namespace CelebrationDemo
                     else StartCelebrationSequence();
                 }
             }
+        }
+
+        /// <summary>Attempts the independent E-key capture action for the nearest other actor.</summary>
+        public void Capture()
+        {
+            if (Hud != null && Hud.IsModalOpen) return;
+            var target = CurrentCaptureTarget;
+            if (target == null || Session == null) return;
+            Session.ExecuteCapture(ActiveActorId, target.ActorId);
+            RefreshWorld();
+            // Core records the result before returning, so HUD bubbles/log rows
+            // are delivered through the normal EventRecorded path.
         }
 
         void StartCelebrationSequence()
@@ -291,6 +309,33 @@ namespace CelebrationDemo
             return best;
         }
 
+        ActorView FindCaptureTarget()
+        {
+            if (Session == null || !Session.HasChopsticks(ActiveActorId) || Actors == null)
+                return null;
+            var active = GetActorView(ActiveActorId);
+            if (active == null) return null;
+
+            ActorView best = null;
+            float bestDistance = float.PositiveInfinity;
+            foreach (var actor in Actors)
+            {
+                if (actor == null || actor == active) continue;
+                var offset = actor.transform.position - active.transform.position;
+                offset.y = 0f;
+                var distance = offset.magnitude;
+                if (distance > CaptureDistance) continue;
+                if (distance < bestDistance - SelectionDistanceEpsilon ||
+                    (Mathf.Abs(distance - bestDistance) <= SelectionDistanceEpsilon &&
+                     (best == null || actor.ActorId < best.ActorId)))
+                {
+                    best = actor;
+                    bestDistance = distance;
+                }
+            }
+            return best;
+        }
+
         static bool IsBetterTarget(TargetView candidate, float candidateDistance, float candidateFacing,
             TargetView current, float currentDistance, float currentFacing, TargetView stickyTarget)
         {
@@ -326,6 +371,11 @@ namespace CelebrationDemo
             if (CurrentTarget != null) CurrentTarget.SetHighlighted(false);
             CurrentTarget = target;
             if (CurrentTarget != null) CurrentTarget.SetHighlighted(true);
+        }
+
+        void SetCaptureTarget(ActorView target)
+        {
+            CurrentCaptureTarget = target;
         }
 
         void RefreshWorld()
