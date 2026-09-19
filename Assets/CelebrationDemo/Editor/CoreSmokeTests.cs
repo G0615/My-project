@@ -19,6 +19,7 @@ namespace CelebrationDemo
             HomeFruitInteractionKeepsActorOwnershipAndCountsActions();
             ShopEggInteractionKeepsActorOwnershipAndCountsPurchases();
             FruitPileDonationKeepsActorOwnershipWithoutInventoryPrerequisite();
+            EggPileDonationKeepsActorOwnershipWithoutInventoryPrerequisite();
             EventHistoryIsCommittedBeforeNotification();
             SharedWorkIsUniqueAndKeepsParticipants();
             SharedWorkUsesOneTwoThreePersonDurations();
@@ -234,6 +235,75 @@ namespace CelebrationDemo
             Check(session.History.Count(item => item.NewlyQualifiedTitles.Contains(TitleKind.Philanthropist)) == 3 &&
                 session.History.All(item => item.ActionType != "偷吃"),
                 "each actor qualifies once and donation history contains no stealing event");
+        }
+
+        static void EggPileDonationKeepsActorOwnershipWithoutInventoryPrerequisite()
+        {
+            var session = new DemoSession();
+            var target = new TargetSpec("egg-pile", TargetKind.EggPile);
+
+            // B07 starts from a fresh session: an egg donation does not require
+            // a shop purchase, and no actor may be carrying chopsticks.
+            for (var actorId = 1; actorId <= 3; actorId++)
+            {
+                Check(!session.HasChopsticks(actorId) && !session.GetActor(actorId).HasDonated &&
+                    !session.GetActor(actorId).HasEaten,
+                    "fresh actor " + actorId + " can donate eggs without a prerequisite or stealing state");
+                var offer = session.Resolve(actorId, target);
+                Check(offer.CanExecute && offer.Label == "捐献鸡蛋",
+                    "egg pile offers egg donation to actor " + actorId + " without chopsticks");
+
+                var outcome = session.Execute(actorId, target);
+                Check(outcome.Success && outcome.ActorId == actorId && outcome.Message == "捐献鸡蛋",
+                    "egg donation returns the egg donation result for actor " + actorId);
+            }
+
+            // Repeated F remains an event for the active actor. It must keep the
+            // egg-pile target and never turn the display delta into inventory.
+            session.Execute(2, target);
+            session.Execute(2, target);
+            var expectedActors = new[] { 1, 2, 3, 2, 2 };
+            Check(session.History.Count == expectedActors.Length,
+                "three first egg donations plus two repeated donations are five events");
+            Check(session.GetHistory(1).Count == 1 && session.GetHistory(1).All(item => item.ActorId == 1),
+                "actor one history keeps only actor one egg donations");
+            Check(session.GetHistory(2).Count == 3 && session.GetHistory(2).All(item => item.ActorId == 2),
+                "actor two history counts repeated egg donations without cross attribution");
+            Check(session.GetHistory(3).Count == 1 && session.GetHistory(3).All(item => item.ActorId == 3),
+                "actor three history keeps only actor three egg donations");
+
+            for (var index = 0; index < session.History.Count; index++)
+            {
+                var action = session.History[index];
+                var actorId = expectedActors[index];
+                Check(action.ActionType == "捐献" && action.MessageKind == "物品堆" &&
+                    action.ActorId == actorId && action.TargetId == target.Id,
+                    "egg donation event keeps action, actor, and egg-pile target identity " + (index + 1));
+                Check(action.ActorText == "[鸡蛋]-1" && action.TargetText == "广场[鸡蛋]+1" &&
+                    action.Message.Contains("捐献了[鸡蛋]×1") && action.Message.Contains("[鸡蛋]-1") &&
+                    action.Message.Contains("广场[鸡蛋]+1") && !action.Message.Contains("水果"),
+                    "egg donation exposes exact egg actor and target feedback without fruit semantics " + (index + 1));
+                Check(action.DisplayDeltas.Length == 2 &&
+                    action.DisplayDeltas[0] == actorId + "号玩家[鸡蛋]-1" &&
+                    action.DisplayDeltas[1] == "广场[鸡蛋]+1" &&
+                    action.StatChanges.Length == 1 &&
+                    action.StatChanges[0] == actorId + "号玩家[捐献次数]+1",
+                    "egg donation separates resource feedback from the donation statistic " + (index + 1));
+                Check(action.Sequence == index + 1L && action.EventId == session.ActivityId + "-" + (index + 1L),
+                    "egg donation repeated actions keep monotonic event identity " + (index + 1));
+            }
+
+            Check(session.GetActor(1).DonationCount == 1 && session.GetActor(2).DonationCount == 3 &&
+                session.GetActor(3).DonationCount == 1,
+                "repeated egg donations count actions without inventing an inventory total");
+            Check(session.GetActor(1).HasDonated && session.GetActor(2).HasDonated && session.GetActor(3).HasDonated &&
+                !session.GetActor(1).HasEaten && !session.GetActor(2).HasEaten && !session.GetActor(3).HasEaten &&
+                session.GetActor(1).EatCount == 0 && session.GetActor(2).EatCount == 0 && session.GetActor(3).EatCount == 0,
+                "egg donations grant donation participation without creating stealing state");
+            Check(session.History.Count(item => item.NewlyQualifiedTitles.Contains(TitleKind.Philanthropist)) == 3 &&
+                session.History.All(item => item.ActionType != "偷吃") &&
+                session.History.All(item => item.TargetId == target.Id),
+                "each actor qualifies once and egg donation history never targets the fruit pile or stealing");
         }
 
         static void EventHistoryIsCommittedBeforeNotification()
