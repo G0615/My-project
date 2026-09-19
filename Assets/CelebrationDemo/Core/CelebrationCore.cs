@@ -660,8 +660,9 @@ namespace CelebrationDemo
             RecordSimple(actorId, target.Id,
                 actorId + "号玩家捐献了[" + item + "]×1；" + actorId + "号玩家[" + item + "]-1，广场[" + item + "]+1。",
                 "捐献", "物品堆",
-                new[] { actorId + "号玩家[" + item + "]-1", "广场[" + item + "]+1", actorId + "号玩家[捐献次数]+1" },
-                newlyQualified);
+                new[] { actorId + "号玩家[" + item + "]-1", "广场[" + item + "]+1" },
+                newlyQualified,
+                statChanges: new[] { actorId + "号玩家[捐献次数]+1" });
             return Success(actorId, "捐献" + item);
         }
 
