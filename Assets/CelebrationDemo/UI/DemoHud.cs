@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.RegularExpressions;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.InputSystem.UI;
@@ -29,10 +30,16 @@ namespace CelebrationDemo
         static readonly Color PanelLightColor = new Color(0.08f, 0.115f, 0.17f, 0.94f);
         static readonly Color MutedText = new Color(0.72f, 0.78f, 0.86f, 1f);
         static readonly Color Accent = new Color(1f, 0.78f, 0.28f, 1f);
-        static readonly Color LogActionColor = new Color(0.38f, 0.78f, 1f, 1f);
-        static readonly Color LogPositiveColor = new Color(0.38f, 0.94f, 0.58f, 1f);
-        static readonly Color LogNegativeColor = new Color(1f, 0.42f, 0.42f, 1f);
-        static readonly Color LogNeutralResultColor = new Color(0.86f, 0.88f, 0.92f, 1f);
+        // Log rows use the actor colour for actions and one shared colour for
+        // every item token/change. This keeps a three-player log readable
+        // without turning every +1/-1 into a different semantic colour.
+        static readonly Color LogItemColor = new Color(1f, 0.78f, 0.3f, 1f);
+        static readonly string[] ItemNames =
+        {
+            "水果", "苹果", "香蕉", "橘子", "鸡蛋", "果切", "奶油", "筷子",
+            "金币", "移速", "奖杯", "捐献次数", "切果完成次数", "打发完成次数",
+            "蛋糕挂点", "蛋糕区域"
+        };
         [SerializeField] DemoRuntime runtime;
 
         Canvas canvas;
@@ -866,7 +873,7 @@ namespace CelebrationDemo
                 var attribution = ActorAttribution(action);
                 if (!string.IsNullOrEmpty(attribution)) message = attribution + "：" + message;
             }
-            return ColorizeLogMessage(message, action);
+            return ColorizeLogMessage(NormalizeItemBrackets(message), action);
         }
 
         static bool ContainsActorAttribution(string message, ActionEvent action)
@@ -909,6 +916,7 @@ namespace CelebrationDemo
             if (string.IsNullOrWhiteSpace(text)) return "完成";
             text = text.Replace("\n", " ").Trim();
             text = RemoveInternalTargetId(text, targetId);
+            text = NormalizeItemBrackets(text);
             if (string.IsNullOrWhiteSpace(text)) return "完成";
             return text.Length > 24 ? text.Substring(0, 24) + "…" : text;
         }
@@ -935,15 +943,23 @@ namespace CelebrationDemo
 
         static string ColorizeLogMessage(string message, ActionEvent action)
         {
-            var result = ColorizeLogDeltas(message, action);
-            var actionTokens = new[]
+            var result = NormalizeItemBrackets(message);
+            var actionColor = action != null && action.ActorId >= 1 && action.ActorId <= 3
+                ? ActorColor(action.ActorId)
+                : new Color(0.88f, 0.91f, 0.96f, 1f);
+            var actionTokens = new List<string>
             {
-                "举办庆典", "颁发奖杯", "放置奖杯", "贴果切", "抹奶油", "重复加入",
-                "领取", "购买", "捐献", "偷吃", "开始", "加入", "完成", "查看"
+                "举办庆典", "颁发奖杯", "放置奖杯", "查看活动回顾", "查看庆典结果",
+                "贴果切", "抹奶油", "切水果", "打发奶油", "领取", "购买", "捐献",
+                "偷吃", "开始", "加入", "完成", "查看", "获得筷子"
             };
-            foreach (var token in actionTokens)
-                result = ColorText(result, token, LogActionColor);
-            return ColorizePlayers(result);
+            if (action != null && !string.IsNullOrEmpty(action.ActionType))
+                actionTokens.Add(action.ActionType);
+            foreach (var token in actionTokens.Distinct().OrderByDescending(token => token.Length))
+                result = ColorText(result, token, actionColor);
+
+            result = ColorizePlayers(result);
+            return ColorizeLogDeltas(result, action);
         }
 
         static string ColorizeLogDeltas(string message, ActionEvent action)
@@ -954,12 +970,32 @@ namespace CelebrationDemo
             foreach (var delta in action.DisplayDeltas.Distinct())
             {
                 if (string.IsNullOrEmpty(delta)) continue;
-                var color = delta.IndexOf('+') >= 0
-                    ? LogPositiveColor
-                    : delta.IndexOf('-') >= 0 ? LogNegativeColor : LogNeutralResultColor;
-                message = ColorText(message, delta, color);
+                var normalized = NormalizeItemBrackets(delta);
+                var itemStart = normalized.IndexOf('[', StringComparison.Ordinal);
+                if (itemStart < 0) continue;
+                var itemChange = normalized.Substring(itemStart);
+                message = ColorText(message, itemChange, LogItemColor);
             }
+
+            foreach (var item in ItemNames)
+                message = ColorText(message, "[" + item + "]", LogItemColor);
             return message;
+        }
+
+        static string NormalizeItemBrackets(string text)
+        {
+            if (string.IsNullOrEmpty(text)) return text;
+            foreach (var item in ItemNames)
+            {
+                var escaped = Regex.Escape(item);
+                // Repair the common serialized form "水果]" where the
+                // leading bracket was stripped while composing head text.
+                text = Regex.Replace(text, "(?<!\\[)" + escaped + "\\]", "[" + item + "]");
+                // Also accept a token with both brackets missing when it is
+                // immediately followed by a count/change marker.
+                text = Regex.Replace(text, "(?<!\\[)" + escaped + "(?=(?:×|[+\\-]|（|\\(|$))", "[" + item + "]");
+            }
+            return text;
         }
 
         static string ColorText(string source, string token, Color color)

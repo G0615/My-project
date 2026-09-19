@@ -194,8 +194,11 @@ namespace CelebrationDemo
                 new Vector3(44f * WorldScale, 1f, 0.4f), m.DarkWood, true);
             CreateVisual("Main Road", PrimitiveType.Cube, parent, new Vector3(0f, -0.02f, -2.6f * WorldScale),
                 new Vector3(40f * WorldScale, 0.12f, 5.2f * WorldScale), m.Road, true);
+            // The plaza is a walkable visual surface. Its solid ground below
+            // remains the movement collider; a second cylinder here would
+            // make the player collide with the stage edge and block entry.
             CreateVisual("Plaza", PrimitiveType.Cylinder, parent, new Vector3(0f, 0.05f, 1.2f * WorldScale),
-                new Vector3(8.8f * WorldScale, 0.15f, 8.8f * WorldScale), m.Plaza, true);
+                new Vector3(8.8f * WorldScale, 0.15f, 8.8f * WorldScale), m.Plaza, false);
 
             Vector3 homeOne = new Vector3(-30f, 1.1f, 23f);
             Vector3 homeTwo = new Vector3(30f, 1.1f, 23f);
@@ -203,19 +206,29 @@ namespace CelebrationDemo
             Vector3 shop = new Vector3(30f, 1.1f, -23f);
             CreateBuilding(parent, "Home 1", homeOne, m.Red, m.Green, Vector3.back);
             CreateBuilding(parent, "Home 2", homeTwo, m.Yellow, m.Green, Vector3.back);
-            CreateBuilding(parent, "Home 3", homeThree, m.Blue, m.Green, Vector3.forward);
-            CreateBuilding(parent, "Shop", shop, m.Wood, m.Yellow, Vector3.forward);
+            CreateBuilding(parent, "Home 3", homeThree, m.Blue, m.Green, Vector3.back);
+            CreateBuilding(parent, "Shop", shop, m.Wood, m.Yellow, Vector3.back);
 
             CreateSign(parent, "Home 1 Sign", homeOne, Vector3.back, m.Red, "1号家园");
             CreateSign(parent, "Home 2 Sign", homeTwo, Vector3.back, m.Yellow, "2号家园");
-            CreateSign(parent, "Home 3 Sign", homeThree, Vector3.forward, m.Blue, "3号家园");
-            CreateSign(parent, "Shop Sign", shop, Vector3.forward, m.Yellow, "鸡蛋商店");
+            CreateSign(parent, "Home 3 Sign", homeThree, Vector3.back, m.Blue, "3号家园");
+            CreateSign(parent, "Shop Sign", shop, Vector3.back, m.Yellow, "鸡蛋商店");
 
             Vector3 cakeCenter = new Vector3(0f, 1.2f, 1.2f * WorldScale);
-            CreateVisual("Cake Base", PrimitiveType.Cylinder, parent, new Vector3(cakeCenter.x, .72f, cakeCenter.z),
-                new Vector3(2.9f * WorldScale, 0.7f, 2.9f * WorldScale), m.Cake, true);
-            CreateVisual("Cake Top", PrimitiveType.Cylinder, parent, new Vector3(cakeCenter.x, 1.48f, cakeCenter.z),
-                new Vector3(2.55f * WorldScale, 0.12f, 2.55f * WorldScale), m.Cream, true);
+            Vector3 cakeOrigin = new Vector3(cakeCenter.x, 0.05f, cakeCenter.z);
+            // Build the cake as six independent 60-degree sectors. The six
+            // authored interaction targets below sit on these same sectors,
+            // alternating fruit and cream so each slice has its own F zone.
+            for (int i = 0; i < 6; i++)
+            {
+                float centerAngle = i * Mathf.PI / 3f;
+                CreateCakeSector(parent, "Cake Sector " + (i + 1) + " Base", cakeOrigin,
+                    centerAngle - Mathf.PI / 6f, centerAngle + Mathf.PI / 6f,
+                    2.9f, 1.4f, m.Cake, 7);
+                CreateCakeSector(parent, "Cake Sector " + (i + 1) + " Top", cakeOrigin + Vector3.up * 1.4f,
+                    centerAngle - Mathf.PI / 6f, centerAngle + Mathf.PI / 6f,
+                    2.55f, 0.12f, m.Cream, 7);
+            }
             CreateVisual("Cake Candle", PrimitiveType.Cylinder, parent, new Vector3(cakeCenter.x, 2.15f, cakeCenter.z),
                 new Vector3(0.12f, 0.5f, 0.12f), m.Pink);
             CreateVisual("Cake Flame", PrimitiveType.Sphere, parent, new Vector3(cakeCenter.x, 2.72f, cakeCenter.z),
@@ -327,8 +340,8 @@ namespace CelebrationDemo
                 new Vector3(11f, 0.65f, 2.4f), "打发奶油", true, m);
             targets[cursor++] = AddChopsticksTarget(parent, m);
 
-            // Cake targets alternate fruit and cream around a 60 degree ring.
-            const float ringRadius = 6.9f;
+            // Cake targets alternate fruit and cream around the six sectors.
+            const float ringRadius = 2.25f;
             for (int i = 0; i < 6; i++)
             {
                 float angle = i * Mathf.PI / 3f;
@@ -342,9 +355,12 @@ namespace CelebrationDemo
             }
 
             targets[cursor++] = AddCelebrationTarget(parent, m);
-            targets[cursor++] = AddTrophyTarget(parent, 1, new Vector3(-27.7f, 0.6f, 19.9f), m);
-            targets[cursor++] = AddTrophyTarget(parent, 2, new Vector3(27.7f, 0.6f, 19.9f), m);
-            targets[cursor++] = AddTrophyTarget(parent, 3, new Vector3(-27.7f, 0.6f, -19.9f), m);
+            // Trees sit on the side of each home nearest the map centre. Put
+            // the trophy on the opposite side so the two authored points do
+            // not overlap the tree, house body, or doorway.
+            targets[cursor++] = AddTrophyTarget(parent, 1, new Vector3(-32.6f, 0.6f, 19.9f), m);
+            targets[cursor++] = AddTrophyTarget(parent, 2, new Vector3(32.6f, 0.6f, 19.9f), m);
+            targets[cursor++] = AddTrophyTarget(parent, 3, new Vector3(-32.6f, 0.6f, -19.9f), m);
 
             if (cursor != targets.Length)
                 Debug.LogError("CelebrationSceneBuilder generated " + cursor + " targets; expected " + targets.Length + ".");
@@ -420,7 +436,7 @@ namespace CelebrationDemo
             // remain separated. Pull each visual half a metre inward to the
             // cake edge and lift it onto the top tier.
             Vector3 inward = new Vector3(-position.x, 0f, -(position.z - 2.4f));
-            if (inward.sqrMagnitude > 0.001f) inward = inward.normalized * .9f;
+            if (inward.sqrMagnitude > 0.001f) inward = inward.normalized * .45f;
             Vector3 attached = inward + Vector3.up * .42f;
             CreateVisual("StateVisual", PrimitiveType.Cylinder, root, attached,
                 new Vector3(.74f, .05f, .74f), fruit ? m.DarkWood : m.Cream, false);
@@ -436,6 +452,67 @@ namespace CelebrationDemo
                     attached + Vector3.up * .08f, new Vector3(.64f, .06f, .64f), m.Cream, false);
             }
             return target;
+        }
+
+        static GameObject CreateCakeSector(Transform parent, string name, Vector3 origin,
+            float startAngle, float endAngle, float radius, float height, Material material, int arcSegments)
+        {
+            arcSegments = Mathf.Max(2, arcSegments);
+            var vertices = new System.Collections.Generic.List<Vector3>(4 + arcSegments * 2);
+            var triangles = new System.Collections.Generic.List<int>(arcSegments * 12 + 6);
+
+            // Two centre vertices make a proper top and bottom fan. The arc
+            // is sampled into straight segments, which keeps the mesh small
+            // while preserving the pizza-slice silhouette at this scale.
+            vertices.Add(new Vector3(0f, 0f, 0f));
+            vertices.Add(new Vector3(0f, height, 0f));
+            for (int i = 0; i <= arcSegments; i++)
+            {
+                float t = i / (float)arcSegments;
+                float angle = Mathf.Lerp(startAngle, endAngle, t);
+                float x = Mathf.Cos(angle) * radius;
+                float z = Mathf.Sin(angle) * radius;
+                vertices.Add(new Vector3(x, 0f, z));
+                vertices.Add(new Vector3(x, height, z));
+            }
+
+            for (int i = 0; i < arcSegments; i++)
+            {
+                int bottomA = 2 + i * 2;
+                int topA = bottomA + 1;
+                int bottomB = bottomA + 2;
+                int topB = bottomA + 3;
+
+                // Bottom and top fans.
+                triangles.Add(0); triangles.Add(bottomB); triangles.Add(bottomA);
+                triangles.Add(1); triangles.Add(topA); triangles.Add(topB);
+                // Curved outer wall.
+                triangles.Add(bottomA); triangles.Add(bottomB); triangles.Add(topB);
+                triangles.Add(bottomA); triangles.Add(topB); triangles.Add(topA);
+            }
+
+            // The two radial walls close the sector.
+            int firstBottom = 2;
+            int firstTop = 3;
+            int lastBottom = 2 + arcSegments * 2;
+            int lastTop = lastBottom + 1;
+            triangles.Add(0); triangles.Add(firstBottom); triangles.Add(firstTop);
+            triangles.Add(0); triangles.Add(firstTop); triangles.Add(1);
+            triangles.Add(0); triangles.Add(1); triangles.Add(lastTop);
+            triangles.Add(0); triangles.Add(lastTop); triangles.Add(lastBottom);
+
+            var mesh = new Mesh { name = name + " Mesh" };
+            mesh.SetVertices(vertices);
+            mesh.SetTriangles(triangles, 0);
+            mesh.RecalculateNormals();
+            mesh.RecalculateBounds();
+
+            var sector = new GameObject(name, typeof(MeshFilter), typeof(MeshRenderer));
+            sector.transform.SetParent(parent, false);
+            sector.transform.localPosition = origin;
+            sector.GetComponent<MeshFilter>().sharedMesh = mesh;
+            sector.GetComponent<MeshRenderer>().sharedMaterial = material;
+            return sector;
         }
 
         static TargetView AddCelebrationTarget(Transform parent, MaterialSet m)

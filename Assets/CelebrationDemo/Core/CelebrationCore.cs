@@ -1014,6 +1014,9 @@ namespace CelebrationDemo
             var name = actorId + "号玩家";
             var own = (deltas ?? Array.Empty<string>())
                 .Where(delta => !string.IsNullOrEmpty(delta) && (delta.Contains(name) || delta.Contains("[奖杯]+1")))
+                // Keep the leading '[' from resource tokens such as
+                // "[水果]+1". Trimming it here made personal head feedback
+                // render as "水果]+1", even though the event log was correct.
                 .Select(delta => delta.Replace(name, string.Empty).Trim(' ', '：', ':', '；', ';', '，', ','))
                 .Where(delta => !string.IsNullOrEmpty(delta))
                 .ToArray();

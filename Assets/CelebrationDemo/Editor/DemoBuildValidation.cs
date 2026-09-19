@@ -58,6 +58,9 @@ namespace CelebrationDemo
             Require(UnityEngine.Object.FindObjectsByType<Camera>().Length == 1, "Exactly one camera after scene generation");
             Require(UnityEngine.Object.FindObjectsByType<Collider>()
                 .Any(c => c.name == "Ground" && c.enabled && !c.isTrigger), "Solid ground collider missing");
+            var plaza = GameObject.Find("Plaza");
+            Require(plaza != null && plaza.GetComponent<Collider>() == null,
+                "Plaza visual must remain walkable without a second solid collider");
             ValidateMovementBoundaries();
             Require(runtime.Targets != null && runtime.Targets.Length == 23, "Expected 23 targets: 13 supplies/work + 6 cake + celebration + 3 trophy");
             Require(runtime.Targets.All(t => t != null), "Target reference missing");
@@ -81,6 +84,10 @@ namespace CelebrationDemo
                 Require(runtime.Targets.Any(t => t.Spec.Kind == kind), "Missing target " + kind);
             Require(runtime.Targets.Count(t => t.Spec.Kind == TargetKind.CakeFruit) == 3, "Fruit slot count");
             Require(runtime.Targets.Count(t => t.Spec.Kind == TargetKind.CakeCream) == 3, "Cream region count");
+            var eggPile = runtime.Targets.FirstOrDefault(t => t.Spec.Kind == TargetKind.EggPile);
+            Require(eggPile != null && eggPile.DisplayName == "鸡蛋堆" &&
+                eggPile.GetComponent<Collider>() != null && !eggPile.GetComponent<Collider>().isTrigger,
+                "Egg pile must expose a solid F interaction target");
             Require(runtime.Targets.Where(t => t.Spec.Kind == TargetKind.Trophy).Select(t => t.Spec.OwnerActorId)
                 .OrderBy(id => id).SequenceEqual(new[] { 1, 2, 3 }), "Trophy ownership");
             Require(UnityEngine.Object.FindObjectsByType<PlayerController>().Length == 0,
