@@ -18,7 +18,8 @@ namespace CelebrationDemo
         const string GeneratedRootName = "CelebrationPrototypeGenerated";
         const string MaterialFolder = "Assets/CelebrationDemo/World/GeneratedMaterials";
         const float CameraPitch = 48f;
-        const float CameraOrthographicSize = 10.5f;
+        const float CameraOrthographicSize = 21f;
+        const float WorldScale = 2f;
 
         static readonly Color GroundColor = new Color(0.18f, 0.28f, 0.30f);
         static readonly Color PlazaColor = new Color(0.44f, 0.57f, 0.58f);
@@ -78,7 +79,7 @@ namespace CelebrationDemo
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
             Selection.activeGameObject = runtimeObject;
-            Debug.Log("Created persistent CelebrationPrototype scene with 3 actors and 19 interaction targets.");
+            Debug.Log("Created persistent CelebrationPrototype scene with 3 actors and 23 interaction targets.");
         }
 
         static GameObject FindRoot(Scene scene, string name)
@@ -179,56 +180,69 @@ namespace CelebrationDemo
 
         static void BuildEnvironment(Transform parent, MaterialSet m)
         {
+            // The map footprint and authored travel distances are doubled so
+            // the plaza has room for three homes and a separate shop corner.
             CreateVisual("Ground", PrimitiveType.Cube, parent, new Vector3(0f, -0.55f, 0f),
-                new Vector3(44f, 1f, 34f), m.Ground, true);
-            // A one-metre perimeter keeps the free-roaming demo inside its
-            // authored floor. Its footprint stays outside the home/shop walls
-            // and the three road-side trophy stands.
-            CreateVisual("Boundary West", PrimitiveType.Cube, parent, new Vector3(-21.8f, 0.5f, 0f),
-                new Vector3(0.4f, 1f, 34f), m.DarkWood, true);
-            CreateVisual("Boundary East", PrimitiveType.Cube, parent, new Vector3(21.8f, 0.5f, 0f),
-                new Vector3(0.4f, 1f, 34f), m.DarkWood, true);
-            CreateVisual("Boundary North", PrimitiveType.Cube, parent, new Vector3(0f, 0.5f, 16.8f),
-                new Vector3(44f, 1f, 0.4f), m.DarkWood, true);
-            CreateVisual("Boundary South", PrimitiveType.Cube, parent, new Vector3(0f, 0.5f, -16.8f),
-                new Vector3(44f, 1f, 0.4f), m.DarkWood, true);
-            CreateVisual("Main Road", PrimitiveType.Cube, parent, new Vector3(0f, -0.02f, -2.6f),
-                new Vector3(40f, 0.12f, 5.2f), m.Road, true);
-            CreateVisual("Plaza", PrimitiveType.Cylinder, parent, new Vector3(0f, 0.05f, 1.2f),
-                new Vector3(8.8f, 0.15f, 8.8f), m.Plaza, true);
+                new Vector3(44f * WorldScale, 1f, 34f * WorldScale), m.Ground, true);
+            CreateVisual("Boundary West", PrimitiveType.Cube, parent, new Vector3(-21.8f * WorldScale, 0.5f, 0f),
+                new Vector3(0.4f, 1f, 34f * WorldScale), m.DarkWood, true);
+            CreateVisual("Boundary East", PrimitiveType.Cube, parent, new Vector3(21.8f * WorldScale, 0.5f, 0f),
+                new Vector3(0.4f, 1f, 34f * WorldScale), m.DarkWood, true);
+            CreateVisual("Boundary North", PrimitiveType.Cube, parent, new Vector3(0f, 0.5f, 16.8f * WorldScale),
+                new Vector3(44f * WorldScale, 1f, 0.4f), m.DarkWood, true);
+            CreateVisual("Boundary South", PrimitiveType.Cube, parent, new Vector3(0f, 0.5f, -16.8f * WorldScale),
+                new Vector3(44f * WorldScale, 1f, 0.4f), m.DarkWood, true);
+            CreateVisual("Main Road", PrimitiveType.Cube, parent, new Vector3(0f, -0.02f, -2.6f * WorldScale),
+                new Vector3(40f * WorldScale, 0.12f, 5.2f * WorldScale), m.Road, true);
+            CreateVisual("Plaza", PrimitiveType.Cylinder, parent, new Vector3(0f, 0.05f, 1.2f * WorldScale),
+                new Vector3(8.8f * WorldScale, 0.15f, 8.8f * WorldScale), m.Plaza, true);
 
-            // Home and shop are deliberately outside the cake ring, with their
-            // targets on the road-facing side for an easy walk between areas.
-            CreateBuilding(parent, "Home", new Vector3(-17f, 1.1f, 4.8f), m.Wood, m.Green);
-            CreateBuilding(parent, "Shop", new Vector3(17f, 1.1f, 4.8f), m.Blue, m.Yellow);
+            Vector3 homeOne = new Vector3(-30f, 1.1f, 23f);
+            Vector3 homeTwo = new Vector3(30f, 1.1f, 23f);
+            Vector3 homeThree = new Vector3(-30f, 1.1f, -23f);
+            Vector3 shop = new Vector3(30f, 1.1f, -23f);
+            CreateBuilding(parent, "Home 1", homeOne, m.Red, m.Green, Vector3.back);
+            CreateBuilding(parent, "Home 2", homeTwo, m.Yellow, m.Green, Vector3.back);
+            CreateBuilding(parent, "Home 3", homeThree, m.Blue, m.Green, Vector3.forward);
+            CreateBuilding(parent, "Shop", shop, m.Wood, m.Yellow, Vector3.forward);
 
-            var signHome = CreateVisual("Home Sign", PrimitiveType.Cube, parent,
-                new Vector3(-17f, 3.2f, 1.75f), new Vector3(4.5f, 0.35f, 0.22f), m.Green);
-            var signShop = CreateVisual("Shop Sign", PrimitiveType.Cube, parent,
-                new Vector3(17f, 3.2f, 1.75f), new Vector3(4.5f, 0.35f, 0.22f), m.Yellow);
-            signHome.transform.rotation = Quaternion.Euler(0f, 0f, 0f);
-            signShop.transform.rotation = Quaternion.Euler(0f, 0f, 0f);
+            CreateSign(parent, "Home 1 Sign", homeOne, Vector3.back, m.Red, "1号家园");
+            CreateSign(parent, "Home 2 Sign", homeTwo, Vector3.back, m.Yellow, "2号家园");
+            CreateSign(parent, "Home 3 Sign", homeThree, Vector3.forward, m.Blue, "3号家园");
+            CreateSign(parent, "Shop Sign", shop, Vector3.forward, m.Yellow, "鸡蛋商店");
 
-            // Cake base and center are environment geometry. The six target
-            // roots are made separately so each remains independently selectable.
-            CreateVisual("Cake Base", PrimitiveType.Cylinder, parent, new Vector3(0f, 0.72f, 1.2f),
-                new Vector3(2.9f, 0.7f, 2.9f), m.Cake, true);
-            CreateVisual("Cake Top", PrimitiveType.Cylinder, parent, new Vector3(0f, 1.48f, 1.2f),
-                new Vector3(2.55f, 0.12f, 2.55f), m.Cream, true);
-            CreateVisual("Cake Candle", PrimitiveType.Cylinder, parent, new Vector3(0f, 2.15f, 1.2f),
+            Vector3 cakeCenter = new Vector3(0f, 1.2f, 1.2f * WorldScale);
+            CreateVisual("Cake Base", PrimitiveType.Cylinder, parent, new Vector3(cakeCenter.x, .72f, cakeCenter.z),
+                new Vector3(2.9f * WorldScale, 0.7f, 2.9f * WorldScale), m.Cake, true);
+            CreateVisual("Cake Top", PrimitiveType.Cylinder, parent, new Vector3(cakeCenter.x, 1.48f, cakeCenter.z),
+                new Vector3(2.55f * WorldScale, 0.12f, 2.55f * WorldScale), m.Cream, true);
+            CreateVisual("Cake Candle", PrimitiveType.Cylinder, parent, new Vector3(cakeCenter.x, 2.15f, cakeCenter.z),
                 new Vector3(0.12f, 0.5f, 0.12f), m.Pink);
-            CreateVisual("Cake Flame", PrimitiveType.Sphere, parent, new Vector3(0f, 2.72f, 1.2f),
+            CreateVisual("Cake Flame", PrimitiveType.Sphere, parent, new Vector3(cakeCenter.x, 2.72f, cakeCenter.z),
                 new Vector3(0.22f, 0.34f, 0.22f), m.Orange);
         }
 
-        static void CreateBuilding(Transform parent, string name, Vector3 position, Material wall, Material roof)
+        static void CreateBuilding(Transform parent, string name, Vector3 position, Material wall, Material roof, Vector3 front)
         {
             CreateVisual(name + " Body", PrimitiveType.Cube, parent, position,
-                new Vector3(6.2f, 2.2f, 4.4f), wall, true);
-            CreateVisual(name + " Roof", PrimitiveType.Cube, parent, position + new Vector3(0f, 1.35f, 0f),
-                new Vector3(6.8f, 0.35f, 4.9f), roof);
-            CreateVisual(name + " Door", PrimitiveType.Cube, parent, position + new Vector3(0f, -0.15f, -2.27f),
-                new Vector3(1.1f, 1.8f, 0.15f), Material("Door", new Color(0.15f, 0.08f, 0.04f)));
+                new Vector3(8.4f, 3f, 6f), wall, true);
+            CreateVisual(name + " Roof", PrimitiveType.Cube, parent, position + Vector3.up * 1.8f,
+                new Vector3(9f, 0.45f, 6.5f), roof);
+            Vector3 direction = front.sqrMagnitude > 0.001f ? front.normalized : Vector3.back;
+            var door = CreateVisual(name + " Door", PrimitiveType.Cube, parent,
+                position + direction * 3.08f + Vector3.down * 0.15f,
+                new Vector3(1.35f, 2.2f, 0.18f), Material("Door", new Color(0.15f, 0.08f, 0.04f)));
+            door.transform.rotation = Quaternion.LookRotation(direction, Vector3.up);
+        }
+
+        static void CreateSign(Transform parent, string name, Vector3 buildingPosition, Vector3 front, Material material, string label)
+        {
+            Vector3 direction = front.sqrMagnitude > 0.001f ? front.normalized : Vector3.back;
+            var sign = CreateVisual(name, PrimitiveType.Cube, parent,
+                buildingPosition + direction * 3.15f + Vector3.up * 3.7f,
+                new Vector3(4.8f, 0.4f, 0.24f), material);
+            sign.transform.rotation = Quaternion.LookRotation(direction, Vector3.up);
+            sign.name = name + " [" + label + "]";
         }
 
         static ActorView[] BuildActors(Transform parent, MaterialSet m)
@@ -236,9 +250,9 @@ namespace CelebrationDemo
             var result = new ActorView[3];
             Vector3[] positions =
             {
-                new Vector3(-2.3f, 0f, -5.8f),
-                new Vector3(0f, 0f, -7.2f),
-                new Vector3(2.3f, 0f, -5.8f)
+                new Vector3(-30f, 0f, 17.8f),
+                new Vector3(30f, 0f, 17.8f),
+                new Vector3(-30f, 0f, -17.8f)
             };
             Material[] colors = { m.Red, m.Yellow, m.Blue };
             for (int i = 0; i < result.Length; i++)
@@ -271,25 +285,21 @@ namespace CelebrationDemo
 
         static TargetView[] BuildTargets(Transform parent, MaterialSet m)
         {
-            var targets = new TargetView[19];
+            var targets = new TargetView[23];
             int cursor = 0;
 
-            // Home fruit point.
-            targets[cursor++] = AddTarget(parent, "Home Fruit", TargetKind.HomeFruit, "home_fruit", 0, 0,
-                new Vector3(-13.3f, 0.8f, 2.1f), "领取苹果", 1.65f, m.Green, m);
-            var tree = targets[cursor - 1].transform;
-            CreateVisual("Trunk", PrimitiveType.Cylinder, tree, new Vector3(0f, 0.65f, 0f),
-                new Vector3(0.25f, 0.75f, 0.25f), m.Wood, false);
-            CreateVisual("Leaves", PrimitiveType.Sphere, tree, new Vector3(0f, 1.65f, 0f),
-                new Vector3(1.2f, 1f, 1.2f), m.Leaf, false);
-            for (int i = 0; i < 3; i++)
-                CreateVisual("Apple" + i, PrimitiveType.Sphere, tree,
-                    new Vector3(Mathf.Cos(i * 2.1f) * .55f, 1.25f + (i % 2) * .25f, Mathf.Sin(i * 2.1f) * .55f),
-                    Vector3.one * .24f, m.Red, false);
+            // Three homes occupy three corners. Each door has a dedicated tree
+            // and the matching public pile below uses the same fruit name.
+            targets[cursor++] = AddFruitTreeTarget(parent, "Home 1 Apple Tree", TargetKind.HomeFruit,
+                "home_apple", new Vector3(-27.4f, 0.8f, 18.7f), "领取苹果", m.Red, m, "Apple");
+            targets[cursor++] = AddFruitTreeTarget(parent, "Home 2 Banana Tree", TargetKind.HomeBanana,
+                "home_banana", new Vector3(27.4f, 0.8f, 18.7f), "领取香蕉", m.Yellow, m, "Banana");
+            targets[cursor++] = AddFruitTreeTarget(parent, "Home 3 Orange Tree", TargetKind.HomeOrange,
+                "home_orange", new Vector3(-27.4f, 0.8f, -18.7f), "领取橘子", m.Orange, m, "Orange");
 
-            // Shop egg point.
+            // Shop egg point is in the fourth corner.
             targets[cursor++] = AddTarget(parent, "Shop Eggs", TargetKind.ShopEgg, "shop_egg", 0, 0,
-                new Vector3(13.3f, 0.65f, 2.1f), "购买鸡蛋", 1.65f, m.Yellow, m);
+                new Vector3(27.4f, 0.65f, -18.7f), "购买鸡蛋", 1.65f, m.Yellow, m);
             var eggTarget = targets[cursor - 1].transform;
             CreateVisual("Counter", PrimitiveType.Cube, eggTarget, new Vector3(0f, .35f, 0f),
                 new Vector3(2.4f, .7f, 1.4f), m.Wood, false);
@@ -298,28 +308,32 @@ namespace CelebrationDemo
                     new Vector3((i % 2) * .5f - .25f, .95f, (i / 2) * .45f - .22f),
                     new Vector3(.32f, .42f, .32f), m.Egg, false);
 
-            targets[cursor++] = AddPileTarget(parent, "Fruit Pile", TargetKind.FruitPile, "fruit_pile",
-                new Vector3(-7.2f, 0.55f, 6.1f), "捐献水果 / 偷吃水果", m.Red, m);
+            targets[cursor++] = AddPileTarget(parent, "Apple Pile", TargetKind.FruitPile, "apple_pile",
+                new Vector3(-12f, 0.55f, 12f), "苹果堆", m.Red, m);
+            targets[cursor++] = AddPileTarget(parent, "Banana Pile", TargetKind.BananaPile, "banana_pile",
+                new Vector3(0f, 0.55f, 12f), "香蕉堆", m.Yellow, m);
+            targets[cursor++] = AddPileTarget(parent, "Orange Pile", TargetKind.OrangePile, "orange_pile",
+                new Vector3(12f, 0.55f, 12f), "橘子堆", m.Orange, m);
             targets[cursor++] = AddPileTarget(parent, "Egg Pile", TargetKind.EggPile, "egg_pile",
-                new Vector3(7.2f, 0.55f, 6.1f), "捐献鸡蛋 / 偷吃鸡蛋", m.Egg, m);
+                new Vector3(12f, 0.55f, -12f), "鸡蛋堆", m.Egg, m);
             targets[cursor++] = AddPileTarget(parent, "Sliced Fruit", TargetKind.SlicedFruit, "sliced_fruit",
-                new Vector3(-7.2f, 0.48f, -1.9f), "偷吃果切", m.Orange, m);
+                new Vector3(-12f, 0.48f, -8f), "果切堆", m.Orange, m);
             targets[cursor++] = AddPileTarget(parent, "Cream Pile", TargetKind.CreamPile, "cream_pile",
-                new Vector3(7.2f, 0.48f, -1.9f), "偷吃奶油", m.Cream, m);
+                new Vector3(12f, 0.48f, -8f), "奶油堆", m.Cream, m);
 
             targets[cursor++] = AddStationTarget(parent, "Cut Station", TargetKind.CutStation, "cut",
-                new Vector3(-7.2f, 0.65f, 2.15f), "切水果", false, m);
+                new Vector3(-11f, 0.65f, 2.4f), "切水果", false, m);
             targets[cursor++] = AddStationTarget(parent, "Whip Station", TargetKind.WhipStation, "whip",
-                new Vector3(7.2f, 0.65f, 2.15f), "打发奶油", true, m);
+                new Vector3(11f, 0.65f, 2.4f), "打发奶油", true, m);
             targets[cursor++] = AddChopsticksTarget(parent, m);
 
             // Cake targets alternate fruit and cream around a 60 degree ring.
-            const float ringRadius = 3.45f;
+            const float ringRadius = 6.9f;
             for (int i = 0; i < 6; i++)
             {
                 float angle = i * Mathf.PI / 3f;
                 Vector3 position = new Vector3(Mathf.Cos(angle) * ringRadius, 1.2f,
-                    1.2f + Mathf.Sin(angle) * ringRadius);
+                    2.4f + Mathf.Sin(angle) * ringRadius);
                 bool fruit = (i % 2) == 0;
                 targets[cursor++] = AddCakeTarget(parent, fruit ? "Cake Fruit " + (i / 2 + 1) : "Cake Cream " + (i / 2 + 1),
                     fruit ? TargetKind.CakeFruit : TargetKind.CakeCream,
@@ -328,15 +342,29 @@ namespace CelebrationDemo
             }
 
             targets[cursor++] = AddCelebrationTarget(parent, m);
-            for (int actorId = 1; actorId <= 3; actorId++)
-            {
-                float x = -20f + (actorId - 1) * 4.0f;
-                targets[cursor++] = AddTrophyTarget(parent, actorId, new Vector3(x, 0.6f, -1.2f), m);
-            }
+            targets[cursor++] = AddTrophyTarget(parent, 1, new Vector3(-27.7f, 0.6f, 19.9f), m);
+            targets[cursor++] = AddTrophyTarget(parent, 2, new Vector3(27.7f, 0.6f, 19.9f), m);
+            targets[cursor++] = AddTrophyTarget(parent, 3, new Vector3(-27.7f, 0.6f, -19.9f), m);
 
             if (cursor != targets.Length)
                 Debug.LogError("CelebrationSceneBuilder generated " + cursor + " targets; expected " + targets.Length + ".");
             return targets;
+        }
+
+        static TargetView AddFruitTreeTarget(Transform parent, string name, TargetKind kind, string id,
+            Vector3 position, string display, Material fruitMaterial, MaterialSet m, string fruitPrefix)
+        {
+            var target = AddTarget(parent, name, kind, id, 0, 0, position, display, 1.65f, fruitMaterial, m);
+            var tree = target.transform;
+            CreateVisual("Trunk", PrimitiveType.Cylinder, tree, new Vector3(0f, 0.65f, 0f),
+                new Vector3(0.25f, 0.75f, 0.25f), m.Wood, false);
+            CreateVisual("Leaves", PrimitiveType.Sphere, tree, new Vector3(0f, 1.65f, 0f),
+                new Vector3(1.2f, 1f, 1.2f), m.Leaf, false);
+            for (int i = 0; i < 3; i++)
+                CreateVisual(fruitPrefix + i, PrimitiveType.Sphere, tree,
+                    new Vector3(Mathf.Cos(i * 2.1f) * .55f, 1.25f + (i % 2) * .25f, Mathf.Sin(i * 2.1f) * .55f),
+                    Vector3.one * .24f, fruitMaterial, false);
+            return target;
         }
 
         static TargetView AddPileTarget(Transform parent, string name, TargetKind kind, string id,
@@ -373,7 +401,7 @@ namespace CelebrationDemo
         static TargetView AddChopsticksTarget(Transform parent, MaterialSet m)
         {
             var target = AddTarget(parent, "Chopsticks", TargetKind.Chopsticks, "chopsticks", 0, 0,
-                new Vector3(0f, .65f, -5.8f), "购买限时筷子", 1.6f, m.Pink, m);
+                new Vector3(0f, .65f, -9.5f), "购买限时筷子", 1.6f, m.Pink, m);
             CreateVisual("Cup", PrimitiveType.Cylinder, target.transform, new Vector3(0f, .45f, 0f),
                 new Vector3(.72f, .45f, .72f), m.Pink, false);
             for (int i = -1; i <= 1; i++)
@@ -391,8 +419,8 @@ namespace CelebrationDemo
             // The interaction root sits just outside the cake so six F zones
             // remain separated. Pull each visual half a metre inward to the
             // cake edge and lift it onto the top tier.
-            Vector3 inward = new Vector3(-position.x, 0f, -(position.z - 1.2f));
-            if (inward.sqrMagnitude > 0.001f) inward = inward.normalized * .55f;
+            Vector3 inward = new Vector3(-position.x, 0f, -(position.z - 2.4f));
+            if (inward.sqrMagnitude > 0.001f) inward = inward.normalized * .9f;
             Vector3 attached = inward + Vector3.up * .42f;
             CreateVisual("StateVisual", PrimitiveType.Cylinder, root, attached,
                 new Vector3(.74f, .05f, .74f), fruit ? m.DarkWood : m.Cream, false);
@@ -413,7 +441,7 @@ namespace CelebrationDemo
         static TargetView AddCelebrationTarget(Transform parent, MaterialSet m)
         {
             var target = AddTarget(parent, "Celebration", TargetKind.Celebration, "celebration", 0, 0,
-                new Vector3(0f, .8f, -9.2f), "举办庆典 / 查看结果", 1.75f, m.Celebration, m);
+                new Vector3(0f, .8f, -15.5f), "举办庆典 / 查看结果", 1.75f, m.Celebration, m);
             var root = target.transform;
             CreateVisual("Pedestal", PrimitiveType.Cylinder, root, new Vector3(0f, .7f, 0f),
                 new Vector3(1.2f, .7f, 1.2f), m.Wood, false);
@@ -457,6 +485,7 @@ namespace CelebrationDemo
             };
             target.DisplayName = display;
             target.InteractionRadius = radius;
+            AddInteractionCollider(root, kind);
 
             CreateVisual("TargetMarker", PrimitiveType.Cylinder, root.transform, new Vector3(0f, .04f, 0f),
                 new Vector3(1.25f, .025f, 1.25f), marker, false);
@@ -468,6 +497,52 @@ namespace CelebrationDemo
             feedback.transform.localPosition = new Vector3(0f, 2.6f, 0f);
             target.FeedbackAnchor = feedback.transform;
             return target;
+        }
+
+        static void AddInteractionCollider(GameObject root, TargetKind kind)
+        {
+            var collider = root.AddComponent<BoxCollider>();
+            collider.isTrigger = false;
+            collider.name = "InteractionCollider";
+            switch (kind)
+            {
+                case TargetKind.HomeFruit:
+                case TargetKind.HomeBanana:
+                case TargetKind.HomeOrange:
+                    collider.center = new Vector3(0f, 1.1f, 0f);
+                    collider.size = new Vector3(2.1f, 2.6f, 2.1f);
+                    break;
+                case TargetKind.ShopEgg:
+                    collider.center = new Vector3(0f, .55f, 0f);
+                    collider.size = new Vector3(2.7f, 1.2f, 1.8f);
+                    break;
+                case TargetKind.CutStation:
+                case TargetKind.WhipStation:
+                    collider.center = new Vector3(0f, .75f, 0f);
+                    collider.size = new Vector3(2.9f, 1.5f, 1.9f);
+                    break;
+                case TargetKind.CakeFruit:
+                case TargetKind.CakeCream:
+                    collider.center = new Vector3(0f, .35f, 0f);
+                    collider.size = new Vector3(1.15f, .9f, 1.15f);
+                    break;
+                case TargetKind.Celebration:
+                    collider.center = new Vector3(0f, .8f, 0f);
+                    collider.size = new Vector3(1.7f, 1.8f, 1.7f);
+                    break;
+                case TargetKind.Trophy:
+                    collider.center = new Vector3(0f, .5f, 0f);
+                    collider.size = new Vector3(1.5f, 1.1f, 1.5f);
+                    break;
+                case TargetKind.Chopsticks:
+                    collider.center = new Vector3(0f, .75f, 0f);
+                    collider.size = new Vector3(1.1f, 1.6f, 1.1f);
+                    break;
+                default:
+                    collider.center = new Vector3(0f, .55f, 0f);
+                    collider.size = new Vector3(1.9f, 1.2f, 1.9f);
+                    break;
+            }
         }
 
         static FixedAngleCamera BuildCamera(Transform initialTarget, Transform parent)

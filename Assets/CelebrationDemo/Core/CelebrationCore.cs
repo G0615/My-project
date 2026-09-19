@@ -19,7 +19,13 @@ namespace CelebrationDemo
         CakeFruit,
         CakeCream,
         Celebration,
-        Trophy
+        Trophy,
+        // Appended to preserve serialized values in scenes authored before
+        // the expanded three-home layout was introduced.
+        HomeBanana,
+        HomeOrange,
+        BananaPile,
+        OrangePile
     }
 
     [Serializable]
@@ -416,10 +422,18 @@ namespace CelebrationDemo
             {
                 case TargetKind.HomeFruit:
                     return new InteractionOffer("领取水果", true);
+                case TargetKind.HomeBanana:
+                    return new InteractionOffer("领取香蕉", true);
+                case TargetKind.HomeOrange:
+                    return new InteractionOffer("领取橘子", true);
                 case TargetKind.ShopEgg:
                     return new InteractionOffer("购买鸡蛋", true);
                 case TargetKind.FruitPile:
                     return new InteractionOffer(HasChopsticks(actorId) ? "偷吃水果" : "捐献水果", true);
+                case TargetKind.BananaPile:
+                    return new InteractionOffer(HasChopsticks(actorId) ? "偷吃香蕉" : "捐献香蕉", true);
+                case TargetKind.OrangePile:
+                    return new InteractionOffer(HasChopsticks(actorId) ? "偷吃橘子" : "捐献橘子", true);
                 case TargetKind.EggPile:
                     return new InteractionOffer(HasChopsticks(actorId) ? "偷吃鸡蛋" : "捐献鸡蛋", true);
                 case TargetKind.SlicedFruit:
@@ -483,6 +497,10 @@ namespace CelebrationDemo
                         actorId + "号玩家领取了[水果]×1；" + actorId + "号玩家[水果]+1。", "领取水果", "已领取",
                         new[] { actorId + "号玩家[水果]+1" }, null);
                     return Success(actorId, "水果 +1");
+                case TargetKind.HomeBanana:
+                    return CollectHomeFruit(actorId, target, "香蕉", "领取香蕉");
+                case TargetKind.HomeOrange:
+                    return CollectHomeFruit(actorId, target, "橘子", "领取橘子");
                 case TargetKind.ShopEgg:
                     RecordSimple(actorId, target.Id,
                         actorId + "号玩家购买了[鸡蛋]×1；" + actorId + "号玩家[金币]-1，" + actorId + "号玩家[鸡蛋]+1。", "购买鸡蛋", "已购买",
@@ -492,6 +510,14 @@ namespace CelebrationDemo
                     return HasChopsticks(actorId)
                         ? Eat(actorId, target, "水果")
                         : Donate(actorId, target, "水果");
+                case TargetKind.BananaPile:
+                    return HasChopsticks(actorId)
+                        ? Eat(actorId, target, "香蕉")
+                        : Donate(actorId, target, "香蕉");
+                case TargetKind.OrangePile:
+                    return HasChopsticks(actorId)
+                        ? Eat(actorId, target, "橘子")
+                        : Donate(actorId, target, "橘子");
                 case TargetKind.EggPile:
                     return HasChopsticks(actorId)
                         ? Eat(actorId, target, "鸡蛋")
@@ -517,6 +543,15 @@ namespace CelebrationDemo
                 default:
                     return Fail(actorId, "无可用动作");
             }
+        }
+
+        ActionOutcome CollectHomeFruit(int actorId, TargetSpec target, string item, string actionType)
+        {
+            RecordSimple(actorId, target.Id,
+                actorId + "号玩家领取了[" + item + "]×1；" + actorId + "号玩家[" + item + "]+1。",
+                actionType, "已领取",
+                new[] { actorId + "号玩家[" + item + "]+1" }, null);
+            return Success(actorId, item + " +1");
         }
 
         public void Advance(double now)

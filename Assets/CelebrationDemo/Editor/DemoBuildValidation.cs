@@ -59,7 +59,7 @@ namespace CelebrationDemo
             Require(UnityEngine.Object.FindObjectsByType<Collider>()
                 .Any(c => c.name == "Ground" && c.enabled && !c.isTrigger), "Solid ground collider missing");
             ValidateMovementBoundaries();
-            Require(runtime.Targets != null && runtime.Targets.Length == 19, "Expected 19 targets: 9 supplies/work + 6 cake + celebration + 3 trophy");
+            Require(runtime.Targets != null && runtime.Targets.Length == 23, "Expected 23 targets: 13 supplies/work + 6 cake + celebration + 3 trophy");
             Require(runtime.Targets.All(t => t != null), "Target reference missing");
             Require(runtime.Targets.All(t => t.Spec != null && t.InteractionRadius > 0f),
                 "Every target needs a positive interaction radius and spec");
@@ -72,6 +72,9 @@ namespace CelebrationDemo
                 "Every target needs a readable Chinese interaction name");
             Require(runtime.Targets.All(t => t.transform.Find("Highlight") != null),
                 "Every target needs a highlight visual");
+            Require(runtime.Targets.All(t =>
+                t.GetComponent<Collider>() != null && t.GetComponent<Collider>().enabled && !t.GetComponent<Collider>().isTrigger),
+                "Every interaction target needs a solid collision barrier");
             Require(runtime.Targets.All(t => !t.transform.Find("Highlight").gameObject.activeSelf),
                 "Target highlights start hidden");
             foreach (TargetKind kind in Enum.GetValues(typeof(TargetKind)))
@@ -84,8 +87,8 @@ namespace CelebrationDemo
                 "Old input-reading PlayerController must not run in the new scene");
             Require(UnityEngine.Object.FindObjectsByType<PlayerInteractor>().Length == 0,
                 "Old input-reading PlayerInteractor must not run in the new scene");
-            Debug.Log("CELEBRATION_SCENE_PASS: actor identities, 19 targets, ownership, references, input isolation");
-            Debug.Log("A08_STATIC_SCENE_PASS: build entry, boundaries, camera, target prompts, runtime/HUD wiring");
+            Debug.Log("CELEBRATION_SCENE_PASS: actor identities, 23 targets, ownership, collisions, references, input isolation");
+            Debug.Log("A08_STATIC_SCENE_PASS: build entry, expanded boundaries, camera, target prompts, runtime/HUD wiring");
         }
 
         static void ValidateActors(ActorView[] actors)
@@ -127,10 +130,10 @@ namespace CelebrationDemo
 
         static void ValidateMovementBoundaries()
         {
-            ValidateBoundary("Boundary West", new Vector3(-21.8f, 0.5f, 0f), new Vector3(0.4f, 1f, 34f));
-            ValidateBoundary("Boundary East", new Vector3(21.8f, 0.5f, 0f), new Vector3(0.4f, 1f, 34f));
-            ValidateBoundary("Boundary North", new Vector3(0f, 0.5f, 16.8f), new Vector3(44f, 1f, 0.4f));
-            ValidateBoundary("Boundary South", new Vector3(0f, 0.5f, -16.8f), new Vector3(44f, 1f, 0.4f));
+            ValidateBoundary("Boundary West", new Vector3(-43.6f, 0.5f, 0f), new Vector3(0.4f, 1f, 68f));
+            ValidateBoundary("Boundary East", new Vector3(43.6f, 0.5f, 0f), new Vector3(0.4f, 1f, 68f));
+            ValidateBoundary("Boundary North", new Vector3(0f, 0.5f, 33.6f), new Vector3(88f, 1f, 0.4f));
+            ValidateBoundary("Boundary South", new Vector3(0f, 0.5f, -33.6f), new Vector3(88f, 1f, 0.4f));
         }
 
         static void ValidateBoundary(string name, Vector3 expectedPosition, Vector3 expectedScale)
@@ -150,8 +153,8 @@ namespace CelebrationDemo
         {
             var camera = cameraRig.GetComponent<Camera>();
             Require(camera.orthographic, "Camera must use orthographic projection");
-            Require(Mathf.Abs(camera.orthographicSize - 10.5f) < 0.001f,
-                "Camera orthographic size must stay at 10.5");
+            Require(Mathf.Abs(camera.orthographicSize - 21f) < 0.001f,
+                "Camera orthographic size must stay at 21 for the expanded scene");
             Require(Quaternion.Angle(cameraRig.transform.rotation, Quaternion.Euler(48f, 0f, 0f)) < 0.01f,
                 "Camera rotation must stay at the fixed 48 degree pitch");
             Require(cameraRig.FollowSmoothTime > 0f, "Camera follow smoothing must be positive");

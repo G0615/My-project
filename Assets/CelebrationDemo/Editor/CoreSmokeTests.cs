@@ -17,6 +17,7 @@ namespace CelebrationDemo
             ModelsHaveFrozenDefaults();
             SingleInteractionCarriesIdentityAndSequence();
             HomeFruitInteractionKeepsActorOwnershipAndCountsActions();
+            ExpandedFruitSourcesUseSharedDonationRule();
             ShopEggInteractionKeepsActorOwnershipAndCountsPurchases();
             FruitPileDonationKeepsActorOwnershipWithoutInventoryPrerequisite();
             EggPileDonationKeepsActorOwnershipWithoutInventoryPrerequisite();
@@ -113,6 +114,29 @@ namespace CelebrationDemo
             Check(!session.GetActor(1).HasDonated && !session.GetActor(2).HasDonated && !session.GetActor(3).HasDonated &&
                 !session.GetActor(1).HasEaten && !session.GetActor(2).HasEaten && !session.GetActor(3).HasEaten,
                 "home fruit claims do not create donation or stealing participation");
+        }
+
+        static void ExpandedFruitSourcesUseSharedDonationRule()
+        {
+            var session = new DemoSession();
+            var bananaHome = new TargetSpec("home-banana", TargetKind.HomeBanana);
+            var orangeHome = new TargetSpec("home-orange", TargetKind.HomeOrange);
+            var bananaPile = new TargetSpec("banana-pile", TargetKind.BananaPile);
+            var orangePile = new TargetSpec("orange-pile", TargetKind.OrangePile);
+
+            Check(session.Resolve(1, bananaHome).Label == "领取香蕉" &&
+                session.Resolve(1, orangeHome).Label == "领取橘子",
+                "expanded homes expose fruit-specific collection prompts");
+            Check(session.Execute(1, bananaHome).Message == "香蕉 +1" &&
+                session.Execute(2, orangeHome).Message == "橘子 +1",
+                "expanded home trees record fruit-specific gains");
+            Check(session.Resolve(1, bananaPile).Label == "捐献香蕉" &&
+                session.Resolve(1, orangePile).Label == "捐献橘子",
+                "expanded public piles use the donation branch without chopsticks");
+            Check(session.Execute(1, bananaPile).Success && session.Execute(2, orangePile).Success &&
+                session.History.Any(item => item.Message.Contains("广场[香蕉]+1")) &&
+                session.History.Any(item => item.Message.Contains("广场[橘子]+1")),
+                "expanded public piles reuse donation event deltas");
         }
 
         static void ShopEggInteractionKeepsActorOwnershipAndCountsPurchases()
