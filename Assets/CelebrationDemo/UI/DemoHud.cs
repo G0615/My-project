@@ -52,7 +52,6 @@ namespace CelebrationDemo
             { new StationProgressVisual(), new StationProgressVisual() };
         readonly Text[] stationTexts = new Text[2];
 
-        Text activeActorText;
         Text targetPromptText;
         Text controlText;
         Text logTitleText;
@@ -272,7 +271,6 @@ namespace CelebrationDemo
             Stretch(hudRect);
 
             BuildActorStrip(hudRect);
-            BuildStationStrip(hudRect);
             BuildTargetPrompt(hudRect);
             BuildControlHint(hudRect);
             BuildLogPanel(hudRect);
@@ -282,26 +280,20 @@ namespace CelebrationDemo
 
         void BuildActorStrip(RectTransform parent)
         {
-            var panel = Panel(parent, "角色状态", new Vector2(0.025f, 0.765f), new Vector2(0.68f, 0.965f), PanelColor);
-            AddText(panel, "三人协作 · 当前状态", 17, Accent, TextAnchor.UpperLeft,
-                new Vector2(0.025f, 0.72f), new Vector2(0.32f, 0.99f));
-
-            activeActorText = AddText(panel, "当前主控", 15, Color.white, TextAnchor.UpperRight,
-                new Vector2(0.52f, 0.72f), new Vector2(0.98f, 0.99f));
-
             for (var i = 0; i < 3; i++)
             {
-                var card = Panel(panel, "角色" + (i + 1),
-                    new Vector2(0.012f + i * 0.326f, 0.08f),
-                    new Vector2(0.32f + i * 0.326f, 0.69f),
+                var top = 0.965f - i * 0.105f;
+                var card = Panel(parent, "角色" + (i + 1),
+                    new Vector2(0.025f, top - 0.09f),
+                    new Vector2(0.22f, top),
                     new Color(0.08f, 0.10f, 0.145f, 0.95f));
                 var marker = Image(card.gameObject, "颜色", ActorColor(i + 1));
                 var markerRect = marker.rectTransform;
-                markerRect.anchorMin = new Vector2(0.02f, 0.16f);
-                markerRect.anchorMax = new Vector2(0.045f, 0.86f);
+                markerRect.anchorMin = new Vector2(0.025f, 0.13f);
+                markerRect.anchorMax = new Vector2(0.055f, 0.87f);
                 markerRect.offsetMin = markerRect.offsetMax = Vector2.zero;
                 actorCardTexts[i] = AddText(card, "", 14, Color.white, TextAnchor.UpperLeft,
-                    new Vector2(0.07f, 0.06f), new Vector2(0.98f, 0.93f));
+                    new Vector2(0.09f, 0.06f), new Vector2(0.97f, 0.94f));
             }
         }
 
@@ -354,7 +346,7 @@ namespace CelebrationDemo
 
         void BuildControlHint(RectTransform parent)
         {
-            var panel = Panel(parent, "操作说明", new Vector2(0.025f, 0.025f), new Vector2(0.265f, 0.18f), PanelColor);
+            var panel = Panel(parent, "操作说明", new Vector2(0.72f, 0.025f), new Vector2(0.98f, 0.18f), PanelColor);
             controlText = AddText(panel,
                 "WASD / 方向键  移动\n1 / 2 / 3  切换角色\nF  互动     Esc  关闭回顾\nR  重置本轮",
                 13, MutedText, TextAnchor.MiddleLeft,
@@ -363,14 +355,14 @@ namespace CelebrationDemo
 
         void BuildLogPanel(RectTransform parent)
         {
-            var panel = Panel(parent, "行为日志", new Vector2(0.715f, 0.145f), new Vector2(0.98f, 0.965f), PanelColor);
+            var panel = Panel(parent, "行为日志", new Vector2(0.025f, 0.025f), new Vector2(0.38f, 0.33f), PanelColor);
             logTitleText = AddText(panel, "最近行为 · 0 / 100", 17, Accent, TextAnchor.UpperLeft,
                 new Vector2(0.045f, 0.94f), new Vector2(0.95f, 0.995f));
 
             var viewportImage = Image(panel.gameObject, "日志视口", new Color(0.015f, 0.022f, 0.038f, 0.50f));
             var viewport = viewportImage.rectTransform;
             viewport.anchorMin = new Vector2(0.025f, 0.045f);
-            viewport.anchorMax = new Vector2(0.975f, 0.91f);
+            viewport.anchorMax = new Vector2(0.975f, 0.90f);
             viewport.offsetMin = viewport.offsetMax = Vector2.zero;
             viewport.gameObject.AddComponent<Mask>().showMaskGraphic = false;
 
@@ -471,9 +463,6 @@ namespace CelebrationDemo
             RefreshRecentLogs();
 
             var active = runtime.ActiveActorId;
-            if (activeActorText != null)
-                activeActorText.text = "当前主控  " + active + "号玩家";
-
             for (var actorId = 1; actorId <= 3; actorId++)
             {
                 var state = runtime.Session.GetActor(actorId);
@@ -493,7 +482,6 @@ namespace CelebrationDemo
                 actorCardTexts[actorId - 1].color = ActorColor(actorId);
             }
 
-            RefreshStations();
             RefreshTargetPrompt();
         }
 
@@ -682,10 +670,10 @@ namespace CelebrationDemo
                 ? TargetKindName(target.Spec.Kind)
                 : target.DisplayName;
             if (offer != null && offer.CanExecute)
-                return "[ F ]  " + offer.Label + "\n" + displayName;
+                return "[F] " + offer.Label + "\n" + displayName;
             if (offer != null)
-                return displayName + "\n" + offer.Label;
-            return "[ F ]  互动\n" + displayName;
+                return "[F] " + offer.Label + "\n" + displayName;
+            return "[F] 互动\n" + displayName;
         }
 
         void RefreshRecentLogs()
@@ -749,7 +737,7 @@ namespace CelebrationDemo
             row.rectTransform.anchorMin = new Vector2(0f, 1f);
             row.rectTransform.anchorMax = new Vector2(1f, 1f);
             row.rectTransform.pivot = new Vector2(0.5f, 1f);
-            row.rectTransform.sizeDelta = new Vector2(0f, 42f);
+            row.rectTransform.sizeDelta = new Vector2(0f, 28f);
             row.horizontalOverflow = HorizontalWrapMode.Wrap;
             row.verticalOverflow = VerticalWrapMode.Overflow;
             row.supportRichText = true;
