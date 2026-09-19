@@ -16,6 +16,7 @@ namespace CelebrationDemo
             checks = 0;
             ModelsHaveFrozenDefaults();
             SingleInteractionCarriesIdentityAndSequence();
+            HomeFruitInteractionKeepsActorOwnershipAndCountsActions();
             EventHistoryIsCommittedBeforeNotification();
             SharedWorkIsUniqueAndKeepsParticipants();
             SharedWorkUsesOneTwoThreePersonDurations();
@@ -57,6 +58,57 @@ namespace CelebrationDemo
 
             session.Execute(1, new TargetSpec("shop-egg", TargetKind.ShopEgg));
             Check(session.History.Count == 2 && session.History[1].Sequence == 2L, "sequence advances for the next interaction");
+        }
+
+        static void HomeFruitInteractionKeepsActorOwnershipAndCountsActions()
+        {
+            var session = new DemoSession();
+            var target = new TargetSpec("home-fruit", TargetKind.HomeFruit);
+
+            // The same home point is available to each currently selected actor.
+            for (var actorId = 1; actorId <= 3; actorId++)
+            {
+                var offer = session.Resolve(actorId, target);
+                Check(offer.CanExecute && offer.Label == "领取水果",
+                    "home fruit is executable for actor " + actorId);
+
+                var outcome = session.Execute(actorId, target);
+                Check(outcome.Success && outcome.ActorId == actorId && outcome.Message == "水果 +1",
+                    "home fruit returns the fruit plus one result for actor " + actorId);
+            }
+
+            // Repeated F is a repeated action. It appends events and never turns
+            // the event-only delta into a persistent inventory or a balance change.
+            session.Execute(2, target);
+            session.Execute(2, target);
+            Check(session.History.Count == 5, "three first claims plus two repeated claims are five events");
+            Check(session.GetHistory(1).Count == 1 && session.GetHistory(1)[0].ActorId == 1,
+                "actor one history keeps only actor one home claims");
+            Check(session.GetHistory(2).Count == 3 && session.GetHistory(2).All(item => item.ActorId == 2),
+                "actor two history counts repeated home claims without cross attribution");
+            Check(session.GetHistory(3).Count == 1 && session.GetHistory(3)[0].ActorId == 3,
+                "actor three history keeps only actor three home claims");
+
+            for (var index = 0; index < session.History.Count; index++)
+            {
+                var action = session.History[index];
+                var actorId = index < 3 ? index + 1 : 2;
+                Check(action.ActionType == "领取水果" && action.MessageKind == "已领取" &&
+                    action.ActorId == actorId && action.TargetId == target.Id,
+                    "home fruit event keeps action, actor, and target identity " + (index + 1));
+                Check(action.ActorText == "[水果]+1" && action.TargetText == "已领取水果" &&
+                    action.Message.Contains("领取了[水果]×1") && action.Message.Contains("[水果]+1"),
+                    "home fruit event exposes human-readable actor and target feedback " + (index + 1));
+                Check(action.DisplayDeltas.Length == 1 && action.DisplayDeltas[0] == actorId + "号玩家[水果]+1" &&
+                    action.StatChanges.Length == 0 && !action.Message.Contains("金币"),
+                    "home fruit event records only the selected actor fruit delta " + (index + 1));
+                Check(action.Sequence == index + 1L && action.EventId == session.ActivityId + "-" + (index + 1L),
+                    "home fruit repeated actions keep monotonic event identity " + (index + 1));
+            }
+
+            Check(!session.GetActor(1).HasDonated && !session.GetActor(2).HasDonated && !session.GetActor(3).HasDonated &&
+                !session.GetActor(1).HasEaten && !session.GetActor(2).HasEaten && !session.GetActor(3).HasEaten,
+                "home fruit claims do not create donation or stealing participation");
         }
 
         static void EventHistoryIsCommittedBeforeNotification()
