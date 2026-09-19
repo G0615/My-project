@@ -18,6 +18,9 @@ namespace CelebrationDemo
         public int ActiveActorId { get; private set; } = 1;
         public TargetView CurrentTarget { get; private set; }
 
+        const float SelectionDistanceEpsilon = 0.01f;
+        const float SelectionFacingEpsilon = 0.001f;
+
         double elapsed;
         Camera gameplayCamera;
 
@@ -155,7 +158,8 @@ namespace CelebrationDemo
             var actor = GetActorView(ActiveActorId);
             if (actor == null || Targets == null) return null;
             TargetView best = null;
-            float bestScore = float.NegativeInfinity;
+            float bestDistance = float.PositiveInfinity;
+            float bestFacing = float.NegativeInfinity;
             foreach (var target in Targets)
             {
                 if (target == null || !target.isActiveAndEnabled || target.Spec == null) continue;
@@ -165,16 +169,35 @@ namespace CelebrationDemo
                 float distance = offset.magnitude;
                 if (distance > target.InteractionRadius) continue;
                 float facing = distance > .05f ? Vector3.Dot(actor.transform.forward, offset / distance) : 1;
-                // Distance dominates. Facing and a small sticky margin avoid flickering at boundaries.
-                float score = -distance + .3f * facing + (target == CurrentTarget ? .18f : 0);
-                if (score > bestScore ||
-                    (Mathf.Abs(score - bestScore) < .0001f && IsStableTieWinner(target, best)))
+                if (IsBetterTarget(target, distance, facing, best, bestDistance, bestFacing, CurrentTarget))
                 {
-                    bestScore = score;
+                    bestDistance = distance;
+                    bestFacing = facing;
                     best = target;
                 }
             }
             return best;
+        }
+
+        static bool IsBetterTarget(TargetView candidate, float candidateDistance, float candidateFacing,
+            TargetView current, float currentDistance, float currentFacing, TargetView stickyTarget)
+        {
+            if (current == null) return true;
+
+            // Keep distance primary, while treating tiny movement/float noise as
+            // an intentional tie instead of allowing the winner to alternate.
+            if (candidateDistance < currentDistance - SelectionDistanceEpsilon) return true;
+            if (candidateDistance > currentDistance + SelectionDistanceEpsilon) return false;
+
+            // Once a target is selected, keep it through an equal-distance band.
+            // This is especially important when two adjacent targets share a
+            // boundary and the actor position changes by only a few millimetres.
+            if (candidate == stickyTarget) return true;
+            if (current == stickyTarget) return false;
+
+            if (candidateFacing > currentFacing + SelectionFacingEpsilon) return true;
+            if (candidateFacing < currentFacing - SelectionFacingEpsilon) return false;
+            return IsStableTieWinner(candidate, current);
         }
 
         // Scene arrays are serialized in authoring order, but a stable ID tie-break
@@ -182,9 +205,7 @@ namespace CelebrationDemo
         static bool IsStableTieWinner(TargetView candidate, TargetView current)
         {
             if (current == null) return true;
-            string candidateId = candidate.Spec == null ? string.Empty : candidate.Spec.Id ?? string.Empty;
-            string currentId = current.Spec == null ? string.Empty : current.Spec.Id ?? string.Empty;
-            return string.CompareOrdinal(candidateId, currentId) < 0;
+            return string.CompareOrdinal(candidate.StableSelectionKey, current.StableSelectionKey) < 0;
         }
 
         void SetTarget(TargetView target)

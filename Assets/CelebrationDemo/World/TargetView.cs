@@ -14,6 +14,20 @@ namespace CelebrationDemo
         public Transform FeedbackAnchor;
         public float InteractionRadius = 2.4f;
 
+        /// <summary>
+        /// Internal deterministic key used only when two targets tie during
+        /// selection. It deliberately never appears in the HUD prompt.
+        /// </summary>
+        public string StableSelectionKey
+        {
+            get
+            {
+                if (Spec != null && !string.IsNullOrEmpty(Spec.Id)) return Spec.Id;
+                if (!string.IsNullOrEmpty(DisplayName)) return DisplayName;
+                return name ?? string.Empty;
+            }
+        }
+
         /// <summary>Whether this target is the runtime's current interaction target.</summary>
         public bool IsHighlighted { get; private set; }
 

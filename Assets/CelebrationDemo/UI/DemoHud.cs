@@ -582,13 +582,24 @@ namespace CelebrationDemo
             }
 
             var offer = runtime.Session.Resolve(runtime.ActiveActorId, target.Spec);
-            var displayName = string.IsNullOrEmpty(target.DisplayName) ? TargetKindName(target.Spec.Kind) : target.DisplayName;
+            targetPromptText.text = FormatTargetPrompt(target, offer);
+        }
+
+        /// <summary>
+        /// Builds the small prompt from the same resolved offer that F uses.
+        /// DisplayName is the readable target text; TargetSpec.Id stays internal.
+        /// </summary>
+        internal static string FormatTargetPrompt(TargetView target, InteractionOffer offer)
+        {
+            if (target == null || target.Spec == null) return "靠近目标以互动";
+            var displayName = string.IsNullOrEmpty(target.DisplayName)
+                ? TargetKindName(target.Spec.Kind)
+                : target.DisplayName;
             if (offer != null && offer.CanExecute)
-                targetPromptText.text = "[ F ]  " + offer.Label + "\n" + displayName;
-            else if (offer != null)
-                targetPromptText.text = displayName + "\n" + offer.Label;
-            else
-                targetPromptText.text = "[ F ]  互动\n" + displayName;
+                return "[ F ]  " + offer.Label + "\n" + displayName;
+            if (offer != null)
+                return displayName + "\n" + offer.Label;
+            return "[ F ]  互动\n" + displayName;
         }
 
         void AddRecentLog(string message, Color rowColor)
