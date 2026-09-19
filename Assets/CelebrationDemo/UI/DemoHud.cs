@@ -342,12 +342,20 @@ namespace CelebrationDemo
                     new Vector2(0.22f, top),
                     new Color(0.08f, 0.10f, 0.145f, 0.95f));
                 var marker = Image(card.gameObject, "颜色", ActorColor(i + 1));
+                marker.raycastTarget = false;
                 var markerRect = marker.rectTransform;
                 markerRect.anchorMin = new Vector2(0.025f, 0.13f);
                 markerRect.anchorMax = new Vector2(0.055f, 0.87f);
                 markerRect.offsetMin = markerRect.offsetMax = Vector2.zero;
                 actorCardTexts[i] = AddText(card, "", HudFontSize, Color.white, TextAnchor.UpperLeft,
                     new Vector2(0.09f, 0.06f), new Vector2(0.97f, 0.94f));
+                var actorId = i + 1;
+                var button = card.gameObject.AddComponent<Button>();
+                button.targetGraphic = card.GetComponent<Image>();
+                button.onClick.AddListener(() =>
+                {
+                    if (runtime != null) runtime.SelectActor(actorId);
+                });
             }
         }
 
@@ -362,14 +370,20 @@ namespace CelebrationDemo
 
         void BuildCapturePrompt(RectTransform parent)
         {
-            capturePromptRoot = Panel(parent, "抓捕提示", new Vector2(0.72f, 0.20f),
-                new Vector2(0.98f, 0.28f), new Color(0.16f, 0.08f, 0.12f, 0.92f)).gameObject;
+            capturePromptRoot = Panel(parent, "抓捕提示", new Vector2(0.72f, 0.30f),
+                new Vector2(0.98f, 0.38f), new Color(0.16f, 0.08f, 0.12f, 0.92f)).gameObject;
             capturePromptText = AddText(capturePromptRoot.transform, "", HudFontSize,
                 new Color(1f, 0.62f, 0.7f, 1f), TextAnchor.MiddleCenter,
                 new Vector2(0.03f, 0.03f), new Vector2(0.97f, 0.97f));
             capturePromptText.fontStyle = FontStyle.Bold;
             capturePromptText.horizontalOverflow = HorizontalWrapMode.Overflow;
             capturePromptText.verticalOverflow = VerticalWrapMode.Overflow;
+            var captureButton = capturePromptRoot.AddComponent<Button>();
+            captureButton.targetGraphic = capturePromptRoot.GetComponent<Image>();
+            captureButton.onClick.AddListener(() =>
+            {
+                if (runtime != null) runtime.Capture();
+            });
             capturePromptRoot.SetActive(false);
         }
 
@@ -611,6 +625,13 @@ namespace CelebrationDemo
                 new Vector2(0.03f, 0.03f), new Vector2(0.97f, 0.97f));
             title.horizontalOverflow = HorizontalWrapMode.Overflow;
             title.verticalOverflow = VerticalWrapMode.Overflow;
+            var promptButton = promptObject.AddComponent<Button>();
+            promptButton.targetGraphic = promptObject.GetComponent<Image>();
+            promptButton.onClick.AddListener(() =>
+            {
+                if (runtime != null && runtime.CurrentTarget == target)
+                    runtime.Interact();
+            });
             promptObject.SetActive(false);
 
             var progressRootObject = new GameObject("加工进度", typeof(RectTransform), typeof(Image));
@@ -644,6 +665,7 @@ namespace CelebrationDemo
                 progressRoot = progressRootObject,
                 progressFill = progressFill,
                 progressText = progressText,
+                target = target,
                 anchor = TargetAnchor(target)
             };
         }
@@ -789,12 +811,16 @@ namespace CelebrationDemo
         {
             if (anchor == null || string.IsNullOrEmpty(content) || worldBubbleRoot == null) return;
             PruneExpiredBubbles();
-            var objectBubble = new GameObject("反馈飘字", typeof(RectTransform));
+            var objectBubble = new GameObject("反馈飘字", typeof(RectTransform), typeof(Image));
             objectBubble.transform.SetParent(worldBubbleRoot, false);
             var rect = objectBubble.GetComponent<RectTransform>();
             rect.sizeDelta = new Vector2(220f, 38f);
+            var background = objectBubble.GetComponent<Image>();
+            background.sprite = WhiteSprite();
+            background.color = new Color(0.015f, 0.025f, 0.045f, 0.82f);
+            background.raycastTarget = false;
             var text = AddText(rect, content, HudFontSize, color, TextAnchor.MiddleCenter,
-                new Vector2(0.02f, 0.02f), new Vector2(0.98f, 0.98f));
+                new Vector2(0.05f, 0.04f), new Vector2(0.95f, 0.96f));
             text.horizontalOverflow = HorizontalWrapMode.Wrap;
             text.verticalOverflow = VerticalWrapMode.Truncate;
             text.supportRichText = true;
@@ -915,7 +941,13 @@ namespace CelebrationDemo
                     if (label != null && label.root != null) label.root.SetActive(false);
                     continue;
                 }
-                if (runtime == null || pair.Key != runtime.CurrentTarget)
+                var station = runtime != null && runtime.Session != null && pair.Key != null && pair.Key.Spec != null
+                    ? pair.Key.Spec.Kind == TargetKind.CutStation
+                        ? runtime.Session.CutStation
+                        : pair.Key.Spec.Kind == TargetKind.WhipStation ? runtime.Session.WhipStation : null
+                    : null;
+                var showProgress = station != null && station.IsRunning;
+                if (!showProgress)
                 {
                     label.root.SetActive(false);
                     continue;
@@ -1323,6 +1355,7 @@ namespace CelebrationDemo
             public GameObject progressRoot;
             public Image progressFill;
             public Text progressText;
+            public TargetView target;
             public Transform anchor;
         }
     }

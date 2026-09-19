@@ -82,7 +82,7 @@ namespace CelebrationDemo
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
             Selection.activeGameObject = runtimeObject;
-            Debug.Log("Created persistent CelebrationPrototype scene with 3 actors and 24 interaction targets.");
+            Debug.Log("Created persistent CelebrationPrototype scene with 3 actors and 30 interaction targets.");
         }
 
         static GameObject FindRoot(Scene scene, string name)
@@ -220,17 +220,12 @@ namespace CelebrationDemo
             CreateSign(parent, "Home 3 Sign", homeThree, Vector3.back, m.Blue, "3号家园");
             CreateSign(parent, "Shop Sign", shop, Vector3.back, m.Yellow, "鸡蛋商店");
 
-            // Keep the authored fruit trees near the doors for the three
-            // playable homes, then add a few non-interactive trees outside
-            // each house so the corners read as lived-in yards.  Only the
-            // trunks collide; leaves and fruit stay visual so they do not
-            // create invisible walls around the doors.
-            CreateDecorativeTree(parent, "Home 1 Outer Tree A", new Vector3(-36.5f, -0.08f, 26.2f), m.Red, m);
-            CreateDecorativeTree(parent, "Home 1 Outer Tree B", new Vector3(-37.2f, -0.08f, 20.4f), m.Red, m);
-            CreateDecorativeTree(parent, "Home 2 Outer Tree A", new Vector3(36.5f, -0.08f, 26.2f), m.Yellow, m);
-            CreateDecorativeTree(parent, "Home 2 Outer Tree B", new Vector3(37.2f, -0.08f, 20.4f), m.Yellow, m);
-            CreateDecorativeTree(parent, "Home 3 Outer Tree A", new Vector3(-36.5f, -0.08f, -26.4f), m.Orange, m);
-            CreateDecorativeTree(parent, "Home 3 Outer Tree B", new Vector3(-37.2f, -0.08f, -20.4f), m.Orange, m);
+            // The outer trees are authored as interactive targets in
+            // BuildTargets below so they use the same F flow as the trees by
+            // each door. Keep a marker object to force one migration of older
+            // scenes after this layout change.
+            var layoutMarker = new GameObject("Interactive Outer Trees Layout V2");
+            layoutMarker.transform.SetParent(parent, false);
 
             Vector3 cakeCenter = new Vector3(0f, 1.2f, 1.2f * WorldScale);
             Vector3 cakeOrigin = new Vector3(cakeCenter.x, 0.05f, cakeCenter.z);
@@ -274,21 +269,6 @@ namespace CelebrationDemo
                 new Vector3(4.8f, 0.4f, 0.24f), material);
             sign.transform.rotation = Quaternion.LookRotation(direction, Vector3.up);
             sign.name = name + " [" + label + "]";
-        }
-
-        static void CreateDecorativeTree(Transform parent, string name, Vector3 position, Material fruitMaterial, MaterialSet m)
-        {
-            var tree = new GameObject(name);
-            tree.transform.SetParent(parent, false);
-            tree.transform.position = position;
-            CreateVisual("Trunk", PrimitiveType.Cylinder, tree.transform, new Vector3(0f, .65f, 0f),
-                new Vector3(.25f, .75f, .25f), m.Wood, true);
-            CreateVisual("Leaves", PrimitiveType.Sphere, tree.transform, new Vector3(0f, 1.65f, 0f),
-                new Vector3(1.2f, 1f, 1.2f), m.Leaf, false);
-            for (int i = 0; i < 3; i++)
-                CreateVisual("Fruit" + i, PrimitiveType.Sphere, tree.transform,
-                    new Vector3(Mathf.Cos(i * 2.1f) * .55f, 1.25f + (i % 2) * .25f, Mathf.Sin(i * 2.1f) * .55f),
-                    Vector3.one * .24f, fruitMaterial, false);
         }
 
         static void CreateZoneSign(Transform parent, string name, Vector3 position, string label, MaterialSet m)
@@ -359,7 +339,7 @@ namespace CelebrationDemo
 
         static TargetView[] BuildTargets(Transform parent, MaterialSet m)
         {
-            var targets = new TargetView[24];
+            var targets = new TargetView[30];
             int cursor = 0;
 
             // Three homes occupy three corners. Each door has a dedicated tree
@@ -370,6 +350,22 @@ namespace CelebrationDemo
                 "home_banana", new Vector3(24.6f, -0.08f, 19.7f), "领取香蕉", m.Yellow, m, "Banana");
             targets[cursor++] = AddFruitTreeTarget(parent, "Home 3 Orange Tree", TargetKind.HomeOrange,
                 "home_orange", new Vector3(-24.6f, -0.08f, -26.3f), "领取橘子", m.Orange, m, "Orange");
+
+            // The extra yard trees are also usable fruit sources. They keep
+            // their own target IDs so clicking/approaching any tree follows
+            // the same public interaction and log path as the door trees.
+            targets[cursor++] = AddFruitTreeTarget(parent, "Home 1 Outer Apple Tree A", TargetKind.HomeFruit,
+                "home_apple_outer_a", new Vector3(-36.5f, -0.08f, 26.2f), "领取苹果", m.Red, m, "OuterAppleA");
+            targets[cursor++] = AddFruitTreeTarget(parent, "Home 1 Outer Apple Tree B", TargetKind.HomeFruit,
+                "home_apple_outer_b", new Vector3(-37.2f, -0.08f, 20.4f), "领取苹果", m.Red, m, "OuterAppleB");
+            targets[cursor++] = AddFruitTreeTarget(parent, "Home 2 Outer Banana Tree A", TargetKind.HomeBanana,
+                "home_banana_outer_a", new Vector3(36.5f, -0.08f, 26.2f), "领取香蕉", m.Yellow, m, "OuterBananaA");
+            targets[cursor++] = AddFruitTreeTarget(parent, "Home 2 Outer Banana Tree B", TargetKind.HomeBanana,
+                "home_banana_outer_b", new Vector3(37.2f, -0.08f, 20.4f), "领取香蕉", m.Yellow, m, "OuterBananaB");
+            targets[cursor++] = AddFruitTreeTarget(parent, "Home 3 Outer Orange Tree A", TargetKind.HomeOrange,
+                "home_orange_outer_a", new Vector3(-36.5f, -0.08f, -26.4f), "领取橘子", m.Orange, m, "OuterOrangeA");
+            targets[cursor++] = AddFruitTreeTarget(parent, "Home 3 Outer Orange Tree B", TargetKind.HomeOrange,
+                "home_orange_outer_b", new Vector3(-37.2f, -0.08f, -20.4f), "领取橘子", m.Orange, m, "OuterOrangeB");
 
             // The shop has one usable egg rack on each side of its south-facing
             // door. Keeping both as real targets makes the two wall displays
@@ -626,7 +622,7 @@ namespace CelebrationDemo
         static TargetView AddCelebrationTarget(Transform parent, MaterialSet m)
         {
             var target = AddTarget(parent, "Celebration", TargetKind.Celebration, "celebration", 0, 0,
-                new Vector3(0f, .8f, -15.5f), "举办庆典 / 查看结果", 1.75f, m.Celebration, m);
+                new Vector3(15f, .8f, 1.5f), "举办庆典 / 查看结果", 1.75f, m.Celebration, m);
             var root = target.transform;
             CreateVisual("Pedestal", PrimitiveType.Cylinder, root, new Vector3(0f, .7f, 0f),
                 new Vector3(1.2f, .7f, 1.2f), m.Wood, false);

@@ -196,6 +196,7 @@ namespace CelebrationDemo
             celebrationPhase = CelebrationPhase.Countdown;
             celebrationPhaseElapsed = 0f;
             SetTarget(null);
+            SetCelebrationTriggerVisible(false);
             if (CameraRig != null)
                 CameraRig.BeginCinematicView(CelebrationFocus, CelebrationCameraPitch,
                     CelebrationCountdownSeconds);
@@ -252,6 +253,7 @@ namespace CelebrationDemo
                 fireworks = null;
             }
             if (Hud != null) Hud.HideCelebrationCountdown();
+            SetCelebrationTriggerVisible(true);
             var activeActor = GetActorView(ActiveActorId);
             if (CameraRig != null)
                 CameraRig.EndCinematicView(activeActor != null ? activeActor.transform : null);
@@ -267,6 +269,7 @@ namespace CelebrationDemo
             }
             celebrationPhase = CelebrationPhase.None;
             celebrationPhaseElapsed = 0f;
+            SetCelebrationTriggerVisible(true);
             if (CameraRig != null && CameraRig.IsCinematicView)
                 CameraRig.EndCinematicView(null);
             elapsed = 0;
@@ -279,6 +282,16 @@ namespace CelebrationDemo
             var selected = GetActorView(1);
             if (selected != null && CameraRig != null) CameraRig.SetTarget(selected.transform, true);
             RefreshWorld();
+        }
+
+        void SetCelebrationTriggerVisible(bool visible)
+        {
+            if (Targets == null) return;
+            foreach (var target in Targets)
+            {
+                if (target != null && target.Spec != null && target.Spec.Kind == TargetKind.Celebration)
+                    target.gameObject.SetActive(visible);
+            }
         }
 
         TargetView FindTarget()

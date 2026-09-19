@@ -62,8 +62,12 @@ namespace CelebrationDemo
             Require(plaza != null && plaza.GetComponent<Collider>() == null,
                 "Plaza visual must remain walkable without a second solid collider");
             ValidateMovementBoundaries();
-            Require(runtime.Targets != null && runtime.Targets.Length == 24, "Expected 24 targets: 14 supplies/work + 6 cake + celebration + 3 trophy");
+            Require(runtime.Targets != null && runtime.Targets.Length == 30, "Expected 30 targets: 20 supplies/work + 6 cake + celebration + 3 trophy");
             Require(runtime.Targets.Count(t => t.Spec.Kind == TargetKind.ShopEgg) == 2, "Two usable shop egg racks");
+            Require(runtime.Targets.Count(t => t.Spec.Kind == TargetKind.HomeFruit) == 3 &&
+                runtime.Targets.Count(t => t.Spec.Kind == TargetKind.HomeBanana) == 3 &&
+                runtime.Targets.Count(t => t.Spec.Kind == TargetKind.HomeOrange) == 3,
+                "Three interactive fruit trees per home");
             Require(runtime.Targets.All(t => t != null), "Target reference missing");
             Require(runtime.Targets.All(t => t.Spec != null && t.InteractionRadius > 0f),
                 "Every target needs a positive interaction radius and spec");
@@ -95,7 +99,7 @@ namespace CelebrationDemo
                 "Old input-reading PlayerController must not run in the new scene");
             Require(UnityEngine.Object.FindObjectsByType<PlayerInteractor>().Length == 0,
                 "Old input-reading PlayerInteractor must not run in the new scene");
-            Debug.Log("CELEBRATION_SCENE_PASS: actor identities, 24 targets, ownership, collisions, references, input isolation");
+            Debug.Log("CELEBRATION_SCENE_PASS: actor identities, 30 targets, ownership, collisions, references, input isolation");
             Debug.Log("A08_STATIC_SCENE_PASS: build entry, expanded boundaries, camera, target prompts, runtime/HUD wiring");
         }
 

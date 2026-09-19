@@ -45,7 +45,9 @@ namespace CelebrationDemo
                 text.Contains("Cake Sector 1 Base Lit Mesh") &&
                 text.Contains("Donation Zone Sign Board") &&
                 text.Contains("Finished Zone Sign Board") &&
-                text.Contains("Shop Egg Rack Left");
+                text.Contains("Shop Egg Rack Left") &&
+                (text.Contains("Interactive Outer Trees Layout V2") ||
+                 text.Contains("home_apple_outer_a"));
         }
     }
 }

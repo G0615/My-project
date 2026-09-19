@@ -58,7 +58,7 @@ namespace CelebrationDemo
         IEnumerator RunSequence()
         {
             Require(runtime != null && runtime.Session != null, "Runtime initialized");
-            Require(runtime.Actors.Length == 3 && runtime.Targets.Length == 24, "Scene contents");
+            Require(runtime.Actors.Length == 3 && runtime.Targets.Length == 30, "Scene contents");
             yield return VerifyMovementAndBoundary();
             yield return VerifyActorSwitching();
             yield return VerifyCameraFollow();
