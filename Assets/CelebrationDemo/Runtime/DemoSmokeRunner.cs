@@ -305,9 +305,8 @@ namespace CelebrationDemo
 
             var promptOffer = runtime.Session.Resolve(1, selected.Spec);
             var prompt = DemoHud.FormatTargetPrompt(selected, promptOffer);
-            Require(prompt.Contains("F") && prompt.Contains(selected.DisplayName)
-                && prompt.Any(character => character >= '\u4e00' && character <= '\u9fff'),
-                "Target prompt shows the F key and readable Chinese target name");
+            Require(prompt.StartsWith("[F]") && !prompt.Contains("\n"),
+                "Target prompt shows only the F key and action");
             Require(prompt.Contains(promptOffer.Label), "Target prompt matches the resolved F action");
             Require(!prompt.Contains(selected.Spec.Id), "Target prompt does not expose internal target ID");
 

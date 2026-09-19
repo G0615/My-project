@@ -23,6 +23,7 @@ namespace CelebrationDemo
         const float ReferenceWidth = 1280f;
         const float ReferenceHeight = 720f;
         const float ScreenEdgePadding = 12f;
+        const int HudFontSize = 14;
 
         static readonly Color PanelColor = new Color(0.035f, 0.055f, 0.085f, 0.90f);
         static readonly Color PanelLightColor = new Color(0.08f, 0.115f, 0.17f, 0.94f);
@@ -276,7 +277,7 @@ namespace CelebrationDemo
                 markerRect.anchorMin = new Vector2(0.025f, 0.13f);
                 markerRect.anchorMax = new Vector2(0.055f, 0.87f);
                 markerRect.offsetMin = markerRect.offsetMax = Vector2.zero;
-                actorCardTexts[i] = AddText(card, "", 14, Color.white, TextAnchor.UpperLeft,
+                actorCardTexts[i] = AddText(card, "", HudFontSize, Color.white, TextAnchor.UpperLeft,
                     new Vector2(0.09f, 0.06f), new Vector2(0.97f, 0.94f));
             }
         }
@@ -286,20 +287,20 @@ namespace CelebrationDemo
             var panel = Panel(parent, "操作说明", new Vector2(0.72f, 0.025f), new Vector2(0.98f, 0.18f), PanelColor);
             controlText = AddText(panel,
                 "WASD / 方向键  移动\n1 / 2 / 3  切换角色\nF  互动     Esc  关闭回顾\nR  重置本轮",
-                13, MutedText, TextAnchor.MiddleLeft,
+                HudFontSize, MutedText, TextAnchor.MiddleLeft,
                 new Vector2(0.08f, 0.08f), new Vector2(0.92f, 0.92f));
         }
 
         void BuildLogPanel(RectTransform parent)
         {
-            var panel = Panel(parent, "log", new Vector2(0.025f, 0.025f), new Vector2(0.143f, 0.127f), PanelColor);
-            logTitleText = AddText(panel, "log", 12, Accent, TextAnchor.UpperLeft,
-                new Vector2(0.08f, 0.77f), new Vector2(0.95f, 0.98f));
+            var panel = Panel(parent, "log", new Vector2(0.025f, 0.025f), new Vector2(0.22f, 0.18f), PanelColor);
+            logTitleText = AddText(panel, "log", HudFontSize, Accent, TextAnchor.UpperLeft,
+                new Vector2(0.08f, 0.80f), new Vector2(0.95f, 0.98f));
 
             var viewportImage = Image(panel.gameObject, "日志视口", new Color(0.015f, 0.022f, 0.038f, 0.50f));
             var viewport = viewportImage.rectTransform;
             viewport.anchorMin = new Vector2(0.04f, 0.06f);
-            viewport.anchorMax = new Vector2(0.96f, 0.74f);
+            viewport.anchorMax = new Vector2(0.96f, 0.77f);
             viewport.offsetMin = viewport.offsetMax = Vector2.zero;
             viewport.gameObject.AddComponent<Mask>().showMaskGraphic = false;
 
@@ -410,15 +411,33 @@ namespace CelebrationDemo
                     ? state.ChopsticksExpiresAt - runtime.Session.Now : 0);
                 var slowSeconds = state == null ? 0 : Math.Max(0, state.SlowExpiresAt - runtime.Session.Now);
                 var marker = actorId == active ? "▶ " : "  ";
+                var processing = ProcessingStatus(actorId);
                 actorCardTexts[actorId - 1].text = marker + actorId + "号玩家\n" +
                     "移速 " + speed.ToString("0.0") + "    " +
                     (chopsticks ? "筷子 " + chopstickSeconds.ToString("0") + "秒" : "无筷子") + "\n" +
-                    (state != null && state.SlowStacks > 0
+                    (!string.IsNullOrEmpty(processing)
+                        ? processing
+                        : state != null && state.SlowStacks > 0
                         ? "减速 ×" + state.SlowStacks + "  " + slowSeconds.ToString("0") + "秒"
                         : "状态正常");
                 actorCardTexts[actorId - 1].color = ActorColor(actorId);
             }
 
+        }
+
+        string ProcessingStatus(int actorId)
+        {
+            var session = runtime != null ? runtime.Session : null;
+            if (session == null) return string.Empty;
+
+            var cutting = session.CutStation != null && session.CutStation.IsRunning &&
+                session.CutStation.ParticipantIds != null && session.CutStation.ParticipantIds.Contains(actorId);
+            var whipping = session.WhipStation != null && session.WhipStation.IsRunning &&
+                session.WhipStation.ParticipantIds != null && session.WhipStation.ParticipantIds.Contains(actorId);
+            if (cutting && whipping) return "切水果中 / 打发奶油中";
+            if (cutting) return "切水果中";
+            if (whipping) return "打发奶油中";
+            return string.Empty;
         }
 
         void RefreshWorldLabels()
@@ -443,12 +462,15 @@ namespace CelebrationDemo
                     ? runtime.Session.CutStation
                     : target.Spec.Kind == TargetKind.WhipStation ? runtime.Session.WhipStation : null;
                 label.title.text = FormatTargetPrompt(target, offer);
-                if (station != null)
+                label.anchor = TargetAnchor(target);
+                var showPrompt = target == runtime.CurrentTarget && executable;
+                var showProgress = showPrompt && station != null && station.IsRunning;
+                label.root.SetActive(showPrompt);
+                label.promptRoot.SetActive(showPrompt && !showProgress);
+                if (showProgress)
                     RefreshStationWorldProgress(label, station);
                 else
                     HideStationWorldProgress(label);
-                label.anchor = TargetAnchor(target);
-                label.root.SetActive(target == runtime.CurrentTarget && executable);
             }
 
             var stale = new List<TargetView>();
@@ -464,23 +486,31 @@ namespace CelebrationDemo
 
         WorldLabel CreateWorldLabel(TargetView target)
         {
-            var objectLabel = new GameObject("世界目标标签", typeof(RectTransform), typeof(Image));
+            var objectLabel = new GameObject("世界目标标签", typeof(RectTransform));
             objectLabel.transform.SetParent(worldBubbleRoot, false);
             var rect = objectLabel.GetComponent<RectTransform>();
             rect.sizeDelta = new Vector2(210f, 76f);
-            var background = objectLabel.GetComponent<Image>();
-            background.color = new Color(0.015f, 0.025f, 0.045f, 0.78f);
-            var title = AddText(rect, "", 13, Color.white, TextAnchor.MiddleCenter,
-                new Vector2(0.03f, 0.34f), new Vector2(0.97f, 0.98f));
-            title.horizontalOverflow = HorizontalWrapMode.Wrap;
-            title.verticalOverflow = VerticalWrapMode.Truncate;
 
-            var progressRootObject = new GameObject("加工进度", typeof(RectTransform));
+            var promptObject = new GameObject("交互提示", typeof(RectTransform), typeof(Image));
+            promptObject.transform.SetParent(rect, false);
+            var promptRect = promptObject.GetComponent<RectTransform>();
+            promptRect.anchorMin = new Vector2(0.03f, 0.30f);
+            promptRect.anchorMax = new Vector2(0.97f, 0.97f);
+            promptRect.offsetMin = promptRect.offsetMax = Vector2.zero;
+            promptObject.GetComponent<Image>().color = new Color(0.015f, 0.025f, 0.045f, 0.78f);
+            var title = AddText(promptRect, "", HudFontSize, Color.white, TextAnchor.MiddleCenter,
+                new Vector2(0.03f, 0.03f), new Vector2(0.97f, 0.97f));
+            title.horizontalOverflow = HorizontalWrapMode.Overflow;
+            title.verticalOverflow = VerticalWrapMode.Overflow;
+            promptObject.SetActive(false);
+
+            var progressRootObject = new GameObject("加工进度", typeof(RectTransform), typeof(Image));
             progressRootObject.transform.SetParent(rect, false);
             var progressRoot = progressRootObject.GetComponent<RectTransform>();
             progressRoot.anchorMin = new Vector2(0.08f, 0.03f);
-            progressRoot.anchorMax = new Vector2(0.92f, 0.18f);
+            progressRoot.anchorMax = new Vector2(0.92f, 0.23f);
             progressRoot.offsetMin = progressRoot.offsetMax = Vector2.zero;
+            progressRootObject.GetComponent<Image>().color = new Color(0.015f, 0.025f, 0.045f, 0.88f);
 
             var progressBackground = Image(progressRootObject, "进度底", new Color(0.02f, 0.025f, 0.04f, 0.95f));
             Stretch(progressBackground.rectTransform);
@@ -490,7 +520,7 @@ namespace CelebrationDemo
             progressFill.fillMethod = UnityEngine.UI.Image.FillMethod.Horizontal;
             progressFill.fillOrigin = 0;
             progressFill.fillAmount = 0f;
-            var progressText = AddText(progressRootObject.transform, "0%", 10, Color.white,
+            var progressText = AddText(progressRootObject.transform, "0%", HudFontSize, Color.white,
                 TextAnchor.MiddleCenter, Vector2.zero, Vector2.one);
             progressText.horizontalOverflow = HorizontalWrapMode.Overflow;
             progressText.verticalOverflow = VerticalWrapMode.Overflow;
@@ -500,6 +530,7 @@ namespace CelebrationDemo
             {
                 root = objectLabel,
                 rect = rect,
+                promptRoot = promptObject,
                 title = title,
                 progressRoot = progressRootObject,
                 progressFill = progressFill,
@@ -531,17 +562,14 @@ namespace CelebrationDemo
         }
 
         /// <summary>
-        /// Builds the small prompt from the same resolved offer that F uses.
-        /// DisplayName is the readable target text; TargetSpec.Id stays internal.
+        /// Builds the single-line prompt from the same resolved offer that F uses.
+        /// It intentionally exposes only the key and action, never the target ID.
         /// </summary>
         internal static string FormatTargetPrompt(TargetView target, InteractionOffer offer)
         {
             if (target == null || target.Spec == null || offer == null || !offer.CanExecute)
                 return string.Empty;
-            var displayName = string.IsNullOrEmpty(target.DisplayName)
-                ? TargetKindName(target.Spec.Kind)
-                : target.DisplayName;
-            return "[F]" + offer.Label + "\n" + displayName;
+            return "[F]" + offer.Label;
         }
 
         void RefreshRecentLogs()
@@ -600,7 +628,7 @@ namespace CelebrationDemo
         void AddRecentLogRow(string message, Color rowColor)
         {
             if (logContent == null) return;
-            var row = AddText(logContent, message, 10, Color.white, TextAnchor.MiddleLeft,
+            var row = AddText(logContent, message, HudFontSize, Color.white, TextAnchor.MiddleLeft,
                 Vector2.zero, Vector2.one);
             row.rectTransform.anchorMin = new Vector2(0f, 1f);
             row.rectTransform.anchorMax = new Vector2(1f, 1f);
@@ -947,27 +975,6 @@ namespace CelebrationDemo
             }
         }
 
-        static string TargetKindName(TargetKind kind)
-        {
-            switch (kind)
-            {
-                case TargetKind.HomeFruit: return "家园水果点";
-                case TargetKind.ShopEgg: return "商店";
-                case TargetKind.FruitPile: return "水果堆";
-                case TargetKind.EggPile: return "鸡蛋堆";
-                case TargetKind.SlicedFruit: return "果切";
-                case TargetKind.CreamPile: return "奶油";
-                case TargetKind.CutStation: return "切果工位";
-                case TargetKind.WhipStation: return "打发工位";
-                case TargetKind.Chopsticks: return "筷子区";
-                case TargetKind.CakeFruit: return "蛋糕果切挂点";
-                case TargetKind.CakeCream: return "蛋糕奶油区域";
-                case TargetKind.Celebration: return "庆典触发器";
-                case TargetKind.Trophy: return "奖杯展示位";
-                default: return kind.ToString();
-            }
-        }
-
         static Font FindChineseFont()
         {
             var candidates = new[] { "Microsoft YaHei UI", "Microsoft YaHei", "SimSun", "Noto Sans CJK SC", "Arial" };
@@ -1093,6 +1100,7 @@ namespace CelebrationDemo
         {
             public GameObject root;
             public RectTransform rect;
+            public GameObject promptRoot;
             public Text title;
             public GameObject progressRoot;
             public Image progressFill;
