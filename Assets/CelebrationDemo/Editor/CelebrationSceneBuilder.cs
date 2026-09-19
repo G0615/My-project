@@ -261,14 +261,42 @@ namespace CelebrationDemo
             sign.name = name + " [" + label + "]";
         }
 
+        static void CreateZoneSign(Transform parent, string name, Vector3 position, string label, MaterialSet m)
+        {
+            // These signs are deliberately authored as world objects instead
+            // of HUD elements: they remain visible while the player switches
+            // controlled characters and while the camera follows them.
+            CreateVisual(name + " Post", PrimitiveType.Cylinder, parent,
+                position + Vector3.up * .68f, new Vector3(.1f, .68f, .1f), m.Wood, false);
+            var board = CreateVisual(name + " Board", PrimitiveType.Cube, parent,
+                position + Vector3.up * 1.45f + Vector3.back * .02f,
+                new Vector3(3.2f, .86f, .16f), m.DarkWood, false);
+            board.transform.rotation = Quaternion.LookRotation(Vector3.back, Vector3.up);
+
+            var labelObject = new GameObject(name + " Label");
+            labelObject.transform.SetParent(parent, false);
+            labelObject.transform.position = position + Vector3.up * 1.45f + Vector3.back * .12f;
+            labelObject.transform.rotation = Quaternion.LookRotation(Vector3.back, Vector3.up);
+            var text = labelObject.AddComponent<TextMesh>();
+            text.text = label;
+            text.anchor = TextAnchor.MiddleCenter;
+            text.alignment = TextAlignment.Center;
+            text.fontSize = 48;
+            text.characterSize = .075f;
+            text.color = Color.white;
+            text.font = Font.CreateDynamicFontFromOSFont("Microsoft YaHei UI", 48);
+            if (text.font == null)
+                text.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+        }
+
         static ActorView[] BuildActors(Transform parent, MaterialSet m)
         {
             var result = new ActorView[3];
             Vector3[] positions =
             {
-                new Vector3(-30f, 0f, 17.8f),
-                new Vector3(30f, 0f, 17.8f),
-                new Vector3(-30f, 0f, -17.8f)
+                new Vector3(-30f, 0f, 19.45f),
+                new Vector3(30f, 0f, 19.45f),
+                new Vector3(-30f, 0f, -26.35f)
             };
             Material[] colors = { m.Red, m.Yellow, m.Blue };
             for (int i = 0; i < result.Length; i++)
@@ -307,15 +335,15 @@ namespace CelebrationDemo
             // Three homes occupy three corners. Each door has a dedicated tree
             // and the matching public pile below uses the same fruit name.
             targets[cursor++] = AddFruitTreeTarget(parent, "Home 1 Apple Tree", TargetKind.HomeFruit,
-                "home_apple", new Vector3(-27.4f, 0.8f, 18.7f), "领取苹果", m.Red, m, "Apple");
+                "home_apple", new Vector3(-24.6f, -0.08f, 19.7f), "领取苹果", m.Red, m, "Apple");
             targets[cursor++] = AddFruitTreeTarget(parent, "Home 2 Banana Tree", TargetKind.HomeBanana,
-                "home_banana", new Vector3(27.4f, 0.8f, 18.7f), "领取香蕉", m.Yellow, m, "Banana");
+                "home_banana", new Vector3(24.6f, -0.08f, 19.7f), "领取香蕉", m.Yellow, m, "Banana");
             targets[cursor++] = AddFruitTreeTarget(parent, "Home 3 Orange Tree", TargetKind.HomeOrange,
-                "home_orange", new Vector3(-27.4f, 0.8f, -18.7f), "领取橘子", m.Orange, m, "Orange");
+                "home_orange", new Vector3(-24.6f, -0.08f, -26.3f), "领取橘子", m.Orange, m, "Orange");
 
             // Shop egg point is in the fourth corner.
             targets[cursor++] = AddTarget(parent, "Shop Eggs", TargetKind.ShopEgg, "shop_egg", 0, 0,
-                new Vector3(27.4f, 0.65f, -18.7f), "购买鸡蛋", 1.65f, m.Yellow, m);
+                new Vector3(24.6f, 0f, -26.3f), "购买鸡蛋", 1.65f, m.Yellow, m);
             var eggTarget = targets[cursor - 1].transform;
             CreateVisual("Counter", PrimitiveType.Cube, eggTarget, new Vector3(0f, .35f, 0f),
                 new Vector3(2.4f, .7f, 1.4f), m.Wood, false);
@@ -325,23 +353,28 @@ namespace CelebrationDemo
                     new Vector3(.32f, .42f, .32f), m.Egg, false);
 
             targets[cursor++] = AddPileTarget(parent, "Apple Pile", TargetKind.FruitPile, "apple_pile",
-                new Vector3(-12f, 0.55f, 12f), "苹果堆", m.Red, m);
+                new Vector3(-11f, 0.55f, 10.5f), "苹果堆", m.Red, m);
             targets[cursor++] = AddPileTarget(parent, "Banana Pile", TargetKind.BananaPile, "banana_pile",
-                new Vector3(0f, 0.55f, 12f), "香蕉堆", m.Yellow, m);
+                new Vector3(-7f, 0.55f, 10.5f), "香蕉堆", m.Yellow, m);
             targets[cursor++] = AddPileTarget(parent, "Orange Pile", TargetKind.OrangePile, "orange_pile",
-                new Vector3(12f, 0.55f, 12f), "橘子堆", m.Orange, m);
+                new Vector3(-3f, 0.55f, 10.5f), "橘子堆", m.Orange, m);
             targets[cursor++] = AddPileTarget(parent, "Egg Pile", TargetKind.EggPile, "egg_pile",
-                new Vector3(12f, 0.55f, -12f), "鸡蛋堆", m.Egg, m);
+                new Vector3(1f, 0.55f, 10.5f), "鸡蛋堆", m.Egg, m);
             targets[cursor++] = AddPileTarget(parent, "Sliced Fruit", TargetKind.SlicedFruit, "sliced_fruit",
-                new Vector3(-12f, 0.48f, -8f), "果切堆", m.Orange, m);
+                new Vector3(7f, 0.48f, -6.2f), "果切堆", m.Orange, m);
             targets[cursor++] = AddPileTarget(parent, "Cream Pile", TargetKind.CreamPile, "cream_pile",
-                new Vector3(12f, 0.48f, -8f), "奶油堆", m.Cream, m);
+                new Vector3(11f, 0.48f, -6.2f), "奶油堆", m.Cream, m);
 
             targets[cursor++] = AddStationTarget(parent, "Cut Station", TargetKind.CutStation, "cut",
-                new Vector3(-11f, 0.65f, 2.4f), "切水果", false, m);
+                new Vector3(-8f, 0.65f, -2.2f), "切水果", false, m);
             targets[cursor++] = AddStationTarget(parent, "Whip Station", TargetKind.WhipStation, "whip",
-                new Vector3(11f, 0.65f, 2.4f), "打发奶油", true, m);
+                new Vector3(-4f, 0.65f, -2.2f), "打发奶油", true, m);
             targets[cursor++] = AddChopsticksTarget(parent, m);
+
+            CreateZoneSign(parent, "Donation Zone Sign", new Vector3(-5f, 0f, 12.5f), "捐赠区", m);
+            CreateZoneSign(parent, "Processing Zone Sign", new Vector3(-6f, 0f, -4.1f), "加工区", m);
+            CreateZoneSign(parent, "Finished Zone Sign", new Vector3(9f, 0f, -7.8f), "成品区", m);
+            CreateZoneSign(parent, "Trading Zone Sign", new Vector3(11f, 0f, 11.2f), "交易区", m);
 
             // Cake targets alternate fruit and cream around the six sectors.
             const float ringRadius = 2.25f;
@@ -361,9 +394,9 @@ namespace CelebrationDemo
             // Trees sit on the side of each home nearest the map centre. Put
             // the trophy on the opposite side so the two authored points do
             // not overlap the tree, house body, or doorway.
-            targets[cursor++] = AddTrophyTarget(parent, 1, new Vector3(-32.6f, 0.6f, 19.9f), m);
-            targets[cursor++] = AddTrophyTarget(parent, 2, new Vector3(32.6f, 0.6f, 19.9f), m);
-            targets[cursor++] = AddTrophyTarget(parent, 3, new Vector3(-32.6f, 0.6f, -19.9f), m);
+            targets[cursor++] = AddTrophyTarget(parent, 1, new Vector3(-35.5f, 0f, 19.7f), m);
+            targets[cursor++] = AddTrophyTarget(parent, 2, new Vector3(35.5f, 0f, 19.7f), m);
+            targets[cursor++] = AddTrophyTarget(parent, 3, new Vector3(-35.5f, 0f, -26.3f), m);
 
             if (cursor != targets.Length)
                 Debug.LogError("CelebrationSceneBuilder generated " + cursor + " targets; expected " + targets.Length + ".");
@@ -433,7 +466,7 @@ namespace CelebrationDemo
         static TargetView AddChopsticksTarget(Transform parent, MaterialSet m)
         {
             var target = AddTarget(parent, "Chopsticks", TargetKind.Chopsticks, "chopsticks", 0, 0,
-                new Vector3(0f, .65f, -9.5f), "购买限时筷子", 1.6f, m.Pink, m);
+                new Vector3(11f, .65f, 8.5f), "购买限时筷子", 1.6f, m.Pink, m);
             CreateVisual("Cup", PrimitiveType.Cylinder, target.transform, new Vector3(0f, .45f, 0f),
                 new Vector3(.72f, .45f, .72f), m.Pink, false);
             for (int i = -1; i <= 1; i++)
@@ -506,11 +539,11 @@ namespace CelebrationDemo
                 int topB = bottomA + 3;
 
                 // Bottom and top fans.
-                triangles.Add(0); triangles.Add(bottomB); triangles.Add(bottomA);
-                triangles.Add(1); triangles.Add(topA); triangles.Add(topB);
+                AddDoubleSidedTriangle(triangles, 0, bottomA, bottomB);
+                AddDoubleSidedTriangle(triangles, 1, topB, topA);
                 // Curved outer wall.
-                triangles.Add(bottomA); triangles.Add(bottomB); triangles.Add(topB);
-                triangles.Add(bottomA); triangles.Add(topB); triangles.Add(topA);
+                AddDoubleSidedTriangle(triangles, bottomA, topB, bottomB);
+                AddDoubleSidedTriangle(triangles, bottomA, topA, topB);
             }
 
             // The two radial walls close the sector.
@@ -518,12 +551,12 @@ namespace CelebrationDemo
             int firstTop = 3;
             int lastBottom = 2 + arcSegments * 2;
             int lastTop = lastBottom + 1;
-            triangles.Add(0); triangles.Add(firstBottom); triangles.Add(firstTop);
-            triangles.Add(0); triangles.Add(firstTop); triangles.Add(1);
-            triangles.Add(0); triangles.Add(1); triangles.Add(lastTop);
-            triangles.Add(0); triangles.Add(lastTop); triangles.Add(lastBottom);
+            AddDoubleSidedTriangle(triangles, 0, firstBottom, firstTop);
+            AddDoubleSidedTriangle(triangles, 0, firstTop, 1);
+            AddDoubleSidedTriangle(triangles, 0, 1, lastTop);
+            AddDoubleSidedTriangle(triangles, 0, lastTop, lastBottom);
 
-            var mesh = new Mesh { name = name + " Mesh" };
+            var mesh = new Mesh { name = name + " Solid Mesh" };
             mesh.SetVertices(vertices);
             mesh.SetTriangles(triangles, 0);
             mesh.RecalculateNormals();
@@ -535,6 +568,12 @@ namespace CelebrationDemo
             sector.GetComponent<MeshFilter>().sharedMesh = mesh;
             sector.GetComponent<MeshRenderer>().sharedMaterial = material;
             return sector;
+        }
+
+        static void AddDoubleSidedTriangle(System.Collections.Generic.List<int> triangles, int a, int b, int c)
+        {
+            triangles.Add(a); triangles.Add(b); triangles.Add(c);
+            triangles.Add(c); triangles.Add(b); triangles.Add(a);
         }
 
         static TargetView AddCelebrationTarget(Transform parent, MaterialSet m)
