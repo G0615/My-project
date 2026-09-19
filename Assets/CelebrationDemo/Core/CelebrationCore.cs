@@ -431,9 +431,9 @@ namespace CelebrationDemo
                         ? new InteractionOffer("偷吃奶油", true)
                         : new InteractionOffer("请先获得筷子", false);
                 case TargetKind.CutStation:
-                    return StationOffer(CutStation, "切水果");
+                    return StationOffer("切水果");
                 case TargetKind.WhipStation:
-                    return StationOffer(WhipStation, "打发奶油");
+                    return StationOffer("打发奶油");
                 case TargetKind.Chopsticks:
                     return new InteractionOffer("购买筷子（金币-10）", true);
                 case TargetKind.CakeFruit:
@@ -449,10 +449,9 @@ namespace CelebrationDemo
             }
         }
 
-        static InteractionOffer StationOffer(StationState station, string name)
+        static InteractionOffer StationOffer(string name)
         {
-            if (!station.IsRunning) return new InteractionOffer("开始" + name, true);
-            return new InteractionOffer("加入" + name + "协作", true);
+            return new InteractionOffer(name, true);
         }
 
         InteractionOffer ResolveTrophy(int actorId, TargetSpec target)

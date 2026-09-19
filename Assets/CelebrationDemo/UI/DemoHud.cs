@@ -292,14 +292,14 @@ namespace CelebrationDemo
 
         void BuildLogPanel(RectTransform parent)
         {
-            var panel = Panel(parent, "行为日志", new Vector2(0.025f, 0.025f), new Vector2(0.38f, 0.33f), PanelColor);
-            logTitleText = AddText(panel, "最近行为 · 0 / 100", 17, Accent, TextAnchor.UpperLeft,
-                new Vector2(0.045f, 0.94f), new Vector2(0.95f, 0.995f));
+            var panel = Panel(parent, "log", new Vector2(0.025f, 0.025f), new Vector2(0.143f, 0.127f), PanelColor);
+            logTitleText = AddText(panel, "log", 12, Accent, TextAnchor.UpperLeft,
+                new Vector2(0.08f, 0.77f), new Vector2(0.95f, 0.98f));
 
             var viewportImage = Image(panel.gameObject, "日志视口", new Color(0.015f, 0.022f, 0.038f, 0.50f));
             var viewport = viewportImage.rectTransform;
-            viewport.anchorMin = new Vector2(0.025f, 0.045f);
-            viewport.anchorMax = new Vector2(0.975f, 0.90f);
+            viewport.anchorMin = new Vector2(0.04f, 0.06f);
+            viewport.anchorMax = new Vector2(0.96f, 0.74f);
             viewport.offsetMin = viewport.offsetMax = Vector2.zero;
             viewport.gameObject.AddComponent<Mask>().showMaskGraphic = false;
 
@@ -312,8 +312,8 @@ namespace CelebrationDemo
             logContent.anchoredPosition = Vector2.zero;
             logContent.sizeDelta = new Vector2(0f, 0f);
             var layout = contentObject.GetComponent<VerticalLayoutGroup>();
-            layout.spacing = 5f;
-            layout.padding = new RectOffset(8, 8, 8, 8);
+            layout.spacing = 2f;
+            layout.padding = new RectOffset(4, 4, 4, 4);
             layout.childControlWidth = true;
             layout.childControlHeight = true;
             layout.childForceExpandWidth = true;
@@ -467,19 +467,19 @@ namespace CelebrationDemo
             var objectLabel = new GameObject("世界目标标签", typeof(RectTransform), typeof(Image));
             objectLabel.transform.SetParent(worldBubbleRoot, false);
             var rect = objectLabel.GetComponent<RectTransform>();
-            rect.sizeDelta = new Vector2(210f, 68f);
+            rect.sizeDelta = new Vector2(210f, 76f);
             var background = objectLabel.GetComponent<Image>();
             background.color = new Color(0.015f, 0.025f, 0.045f, 0.78f);
             var title = AddText(rect, "", 13, Color.white, TextAnchor.MiddleCenter,
-                new Vector2(0.03f, 0.28f), new Vector2(0.97f, 0.97f));
+                new Vector2(0.03f, 0.34f), new Vector2(0.97f, 0.98f));
             title.horizontalOverflow = HorizontalWrapMode.Wrap;
             title.verticalOverflow = VerticalWrapMode.Truncate;
 
             var progressRootObject = new GameObject("加工进度", typeof(RectTransform));
             progressRootObject.transform.SetParent(rect, false);
             var progressRoot = progressRootObject.GetComponent<RectTransform>();
-            progressRoot.anchorMin = new Vector2(0.08f, 0.06f);
-            progressRoot.anchorMax = new Vector2(0.92f, 0.23f);
+            progressRoot.anchorMin = new Vector2(0.08f, 0.03f);
+            progressRoot.anchorMax = new Vector2(0.92f, 0.18f);
             progressRoot.offsetMin = progressRoot.offsetMax = Vector2.zero;
 
             var progressBackground = Image(progressRootObject, "进度底", new Color(0.02f, 0.025f, 0.04f, 0.95f));
@@ -570,7 +570,7 @@ namespace CelebrationDemo
                 AddRecentLogRow(FormatActionMessage(action), LogColor(action));
                 recentLogEventIds.Add(ids[i]);
             }
-            if (logTitleText != null) logTitleText.text = "最近行为 · " + logEntries.Count + " / 100";
+            if (logTitleText != null) logTitleText.text = "log";
             ScrollToLatest(logScroll);
         }
 
@@ -587,7 +587,7 @@ namespace CelebrationDemo
             logEntries.Clear();
             recentLogEventIds.Clear();
             if (logContent != null) logContent.gameObject.SetActive(true);
-            if (logTitleText != null) logTitleText.text = "最近行为 · 0 / 100";
+            if (logTitleText != null) logTitleText.text = "log";
         }
 
         static string ActionEventKey(ActionEvent action)
@@ -600,12 +600,12 @@ namespace CelebrationDemo
         void AddRecentLogRow(string message, Color rowColor)
         {
             if (logContent == null) return;
-            var row = AddText(logContent, message, 15, Color.white, TextAnchor.MiddleLeft,
+            var row = AddText(logContent, message, 10, Color.white, TextAnchor.MiddleLeft,
                 Vector2.zero, Vector2.one);
             row.rectTransform.anchorMin = new Vector2(0f, 1f);
             row.rectTransform.anchorMax = new Vector2(1f, 1f);
             row.rectTransform.pivot = new Vector2(0.5f, 1f);
-            row.rectTransform.sizeDelta = new Vector2(0f, 28f);
+            row.rectTransform.sizeDelta = new Vector2(0f, 18f);
             row.horizontalOverflow = HorizontalWrapMode.Wrap;
             row.verticalOverflow = VerticalWrapMode.Overflow;
             row.supportRichText = true;
