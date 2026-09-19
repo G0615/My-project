@@ -17,6 +17,8 @@ namespace CelebrationDemo
         const string ScenePath = "Assets/Scenes/CelebrationPrototype.unity";
         const string GeneratedRootName = "CelebrationPrototypeGenerated";
         const string MaterialFolder = "Assets/CelebrationDemo/World/GeneratedMaterials";
+        const float CameraPitch = 48f;
+        const float CameraOrthographicSize = 10.5f;
 
         static readonly Color GroundColor = new Color(0.18f, 0.28f, 0.30f);
         static readonly Color PlazaColor = new Color(0.44f, 0.57f, 0.58f);
@@ -479,12 +481,12 @@ namespace CelebrationDemo
             var cameraObject = new GameObject("Main Camera");
             cameraObject.transform.SetParent(parent, false);
             cameraObject.tag = "MainCamera";
-            cameraObject.transform.rotation = Quaternion.Euler(48f, 0f, 0f);
+            cameraObject.transform.rotation = Quaternion.Euler(CameraPitch, 0f, 0f);
             Vector3 behind = -(cameraObject.transform.rotation * Vector3.forward).normalized * 21f;
             cameraObject.transform.position = initialTarget.position + behind + Vector3.up;
             var camera = cameraObject.AddComponent<Camera>();
             camera.orthographic = true;
-            camera.orthographicSize = 10.5f;
+            camera.orthographicSize = CameraOrthographicSize;
             camera.nearClipPlane = .1f;
             camera.farClipPlane = 100f;
             camera.backgroundColor = new Color(0.08f, 0.11f, 0.14f);

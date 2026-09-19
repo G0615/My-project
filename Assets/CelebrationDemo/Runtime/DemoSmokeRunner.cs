@@ -61,6 +61,7 @@ namespace CelebrationDemo
             Require(runtime.Actors.Length == 3 && runtime.Targets.Length == 19, "Scene contents");
             yield return VerifyMovementAndBoundary();
             yield return VerifyActorSwitching();
+            yield return VerifyCameraFollow();
             runtime.ResetDemo();
             yield return null;
             runtime.ResetDemo();
@@ -206,6 +207,47 @@ namespace CelebrationDemo
 
             yield return PressKey(Key.Digit1);
             Require(runtime.ActiveActorId == 1, "Switching back to actor 1 remains available");
+        }
+
+        IEnumerator VerifyCameraFollow()
+        {
+            runtime.ResetDemo();
+            yield return null;
+
+            var rig = runtime.CameraRig;
+            var camera = rig == null ? null : rig.GetComponent<Camera>();
+            var actor1 = runtime.GetActorView(1);
+            Require(rig != null && camera != null && actor1 != null, "Fixed camera and primary actor available");
+
+            Quaternion fixedRotation = camera.transform.rotation;
+            float fixedSize = camera.orthographicSize;
+            Vector3 cameraStart = camera.transform.position;
+            Vector3 actorStart = actor1.transform.position;
+            Vector3 followOffset = cameraStart - actorStart;
+
+            yield return HoldKeys(.35f, Key.D);
+            yield return new WaitForSeconds(1f);
+            Require(HorizontalDistance(cameraStart, camera.transform.position) > .1f,
+                "Camera translates after the active actor moves");
+            Require(Vector3.Distance(camera.transform.position, actor1.transform.position + followOffset) < .25f,
+                "Camera settles near the moving actor with its fixed offset");
+            Require(Quaternion.Angle(fixedRotation, camera.transform.rotation) < .01f,
+                "Camera rotation remains fixed while following");
+            Require(Mathf.Abs(fixedSize - camera.orthographicSize) < .001f,
+                "Camera orthographic size remains fixed while following");
+
+            runtime.ResetDemo();
+            yield return null;
+            var actor3 = runtime.GetActorView(3);
+            Vector3 beforeRapidSwitch = camera.transform.position;
+            runtime.SelectActor(2);
+            runtime.SelectActor(3);
+            Require(rig.Target == actor3.transform, "Rapid switching leaves the latest actor as camera target");
+            Require(Vector3.Distance(beforeRapidSwitch, camera.transform.position) < .001f,
+                "Switching camera target does not teleport the camera");
+            yield return new WaitForSeconds(1.4f);
+            Require(Vector3.Distance(camera.transform.position, actor3.transform.position + followOffset) < .3f,
+                "Camera settles near the latest switched actor");
         }
 
         IEnumerator HoldKeys(float seconds, params Key[] keys)

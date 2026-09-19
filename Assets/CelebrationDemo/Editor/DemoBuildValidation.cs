@@ -45,6 +45,7 @@ namespace CelebrationDemo
                 "Actor 1 is the default active input target");
             ValidateActors(runtime.Actors);
             Require(runtime.CameraRig != null && runtime.CameraRig.GetComponent<Camera>() != null, "Camera missing");
+            ValidateCamera(runtime.CameraRig);
             Require(runtime.Hud != null, "HUD missing");
             Require(UnityEngine.Object.FindObjectsByType<Camera>().Length == 1, "Exactly one camera after scene generation");
             Require(UnityEngine.Object.FindObjectsByType<Collider>()
@@ -92,6 +93,17 @@ namespace CelebrationDemo
                     Require((actor.transform.position - actors[other].transform.position).sqrMagnitude > 1f,
                         "Actor spawn positions overlap");
             }
+        }
+
+        static void ValidateCamera(FixedAngleCamera cameraRig)
+        {
+            var camera = cameraRig.GetComponent<Camera>();
+            Require(camera.orthographic, "Camera must use orthographic projection");
+            Require(Mathf.Abs(camera.orthographicSize - 10.5f) < 0.001f,
+                "Camera orthographic size must stay at 10.5");
+            Require(Quaternion.Angle(cameraRig.transform.rotation, Quaternion.Euler(48f, 0f, 0f)) < 0.01f,
+                "Camera rotation must stay at the fixed 48 degree pitch");
+            Require(cameraRig.FollowSmoothTime > 0f, "Camera follow smoothing must be positive");
         }
 
         static bool ColorMatches(Color actual, Color expected)

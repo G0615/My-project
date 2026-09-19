@@ -7,33 +7,39 @@ namespace CelebrationDemo
     [RequireComponent(typeof(Camera))]
     public sealed class FixedAngleCamera : MonoBehaviour
     {
-        [SerializeField] float followSmoothTime = 0.5f;
+        [SerializeField, Min(0.01f)] float followSmoothTime = 0.5f;
 
         Camera cameraComponent;
         Transform target;
         Vector3 followOffset;
         Vector3 velocity;
         Quaternion fixedRotation;
+        bool fixedOrthographic;
         float fixedOrthographicSize;
+        float fixedFieldOfView;
         bool initialized;
+
+        /// <summary>The transform currently followed by this camera, if any.</summary>
+        public Transform Target => target;
+
+        /// <summary>Configured smoothing duration used for positional following.</summary>
+        public float FollowSmoothTime => followSmoothTime;
 
         void Awake()
         {
             cameraComponent = GetComponent<Camera>();
             fixedRotation = transform.rotation;
-            if (cameraComponent != null && cameraComponent.orthographic)
-                fixedOrthographicSize = cameraComponent.orthographicSize;
+            CacheFixedView();
         }
 
         public void SetTarget(Transform newTarget, bool immediate = false)
         {
+            bool targetChanged = target != newTarget;
             if (!initialized)
             {
                 if (cameraComponent == null) cameraComponent = GetComponent<Camera>();
                 fixedRotation = transform.rotation;
-                fixedOrthographicSize = cameraComponent != null && cameraComponent.orthographic
-                    ? cameraComponent.orthographicSize
-                    : 10f;
+                CacheFixedView();
                 if (newTarget != null) followOffset = transform.position - newTarget.position;
                 initialized = true;
             }
@@ -42,6 +48,11 @@ namespace CelebrationDemo
                 followOffset = transform.position - newTarget.position;
             }
 
+            // A target switch starts from the camera's current position. Carrying
+            // velocity from the previous actor would make rapid 1 -> 2 -> 3
+            // switches behave like one chained animation and can overshoot the
+            // latest target.
+            if (targetChanged) velocity = Vector3.zero;
             target = newTarget;
             if (immediate && target != null)
             {
@@ -65,8 +76,21 @@ namespace CelebrationDemo
         void KeepFixedView()
         {
             transform.rotation = fixedRotation;
-            if (cameraComponent != null && cameraComponent.orthographic)
+            if (cameraComponent == null) return;
+            cameraComponent.orthographic = fixedOrthographic;
+            if (fixedOrthographic)
                 cameraComponent.orthographicSize = fixedOrthographicSize;
+            else
+                cameraComponent.fieldOfView = fixedFieldOfView;
+        }
+
+        void CacheFixedView()
+        {
+            fixedOrthographic = cameraComponent != null && cameraComponent.orthographic;
+            if (fixedOrthographic)
+                fixedOrthographicSize = cameraComponent.orthographicSize;
+            else if (cameraComponent != null)
+                fixedFieldOfView = cameraComponent.fieldOfView;
         }
     }
 }
