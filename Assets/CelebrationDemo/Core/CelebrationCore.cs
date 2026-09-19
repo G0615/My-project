@@ -382,8 +382,21 @@ namespace CelebrationDemo
             var actor = GetActor(actorId);
             if (actor == null) return 0f;
             ExpireActor(actor);
+            if (IsActorProcessing(actorId)) return 0f;
             var value = Config.BaseSpeed - actor.SlowStacks;
             return Math.Max(0f, value);
+        }
+
+        /// <summary>Returns true while the actor is an active participant in a running station batch.</summary>
+        public bool IsActorProcessing(int actorId)
+        {
+            return IsStationParticipant(CutStation, actorId) || IsStationParticipant(WhipStation, actorId);
+        }
+
+        static bool IsStationParticipant(StationState station, int actorId)
+        {
+            return station != null && station.IsRunning && station.ParticipantIds != null &&
+                station.ParticipantIds.Contains(actorId);
         }
 
         public bool HasChopsticks(int actorId)

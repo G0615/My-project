@@ -708,12 +708,12 @@ namespace CelebrationDemo
             var hudSource = FindProjectFile(Path.Combine("Assets", "CelebrationDemo", "UI", "DemoHud.cs"));
             Check(!string.IsNullOrEmpty(hudSource), "DemoHud source is available for the feedback contract check");
             Check(hudSource.Contains("ShortFeedback(action.ActorText") &&
-                hudSource.Contains("ShortFeedback(action.TargetText"),
-                "DemoHud reads actor and target feedback from ActionEvent fields");
+                !hudSource.Contains("ShortFeedback(action.TargetText"),
+                "DemoHud reads personal actor feedback without spawning public target feedback");
             Check(hudSource.Contains("ActorColor(action.ActorId)") &&
                 hudSource.Contains("ActorColor(actorId)") &&
-                hudSource.Contains("TargetText, action.Message, action.TargetId), MutedText"),
-                "DemoHud keeps actor colors and neutral target feedback distinct");
+                !hudSource.Contains("TargetText, action.Message, action.TargetId), MutedText"),
+                "DemoHud keeps personal actor colors and suppresses public target bubbles");
             Check(hudSource.Contains("PruneExpiredBubbles") &&
                 hudSource.Contains("now >= bubble.expiresAt") &&
                 hudSource.Contains("DestroyBubbleAt(i)"),

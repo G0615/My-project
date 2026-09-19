@@ -164,6 +164,8 @@ namespace CelebrationDemo
             {
                 if (target == null || !target.isActiveAndEnabled || target.Spec == null) continue;
                 if (target.Spec.Kind == TargetKind.Trophy && target.Spec.OwnerActorId != ActiveActorId) continue;
+                var offer = Session == null ? null : Session.Resolve(ActiveActorId, target.Spec);
+                if (offer == null || !offer.CanExecute) continue;
                 Vector3 offset = target.transform.position - actor.transform.position;
                 offset.y = 0;
                 float distance = offset.magnitude;

@@ -23,14 +23,11 @@ namespace CelebrationDemo
         const float ReferenceWidth = 1280f;
         const float ReferenceHeight = 720f;
         const float ScreenEdgePadding = 12f;
-        const float CompletionFlashPhase = 0.14f;
-        const int CompletionFlashCount = 4;
 
         static readonly Color PanelColor = new Color(0.035f, 0.055f, 0.085f, 0.90f);
         static readonly Color PanelLightColor = new Color(0.08f, 0.115f, 0.17f, 0.94f);
         static readonly Color MutedText = new Color(0.72f, 0.78f, 0.86f, 1f);
         static readonly Color Accent = new Color(1f, 0.78f, 0.28f, 1f);
-        static readonly Color CompletionFlashColor = new Color(1f, 0.92f, 0.36f, 1f);
         [SerializeField] DemoRuntime runtime;
 
         Canvas canvas;
@@ -45,14 +42,7 @@ namespace CelebrationDemo
         readonly List<string> recentLogEventIds = new List<string>();
         readonly List<FloatingBubble> bubbles = new List<FloatingBubble>();
         readonly Text[] actorCardTexts = new Text[3];
-        readonly Image[] stationProgressImages = new Image[2];
-        readonly Image[] stationProgressBackgrounds = new Image[2];
-        readonly GameObject[] stationProgressRoots = new GameObject[2];
-        readonly StationProgressVisual[] stationProgressVisuals =
-            { new StationProgressVisual(), new StationProgressVisual() };
-        readonly Text[] stationTexts = new Text[2];
 
-        Text targetPromptText;
         Text controlText;
         Text logTitleText;
         ScrollRect logScroll;
@@ -122,10 +112,6 @@ namespace CelebrationDemo
                 }
             }
 
-            var target = FindTarget(action.TargetId);
-            if (target != null)
-                SpawnBubble(TargetAnchor(target),
-                    ShortFeedback(action.TargetText, action.Message, action.TargetId), MutedText);
         }
 
         /// <summary>Shows the complete personal history for the actor who viewed a trophy.</summary>
@@ -203,7 +189,6 @@ namespace CelebrationDemo
                 if (pair.Value != null && pair.Value.root != null) Destroy(pair.Value.root);
             worldLabels.Clear();
 
-            ResetStationProgressVisuals();
             RefreshHud();
         }
 
@@ -271,7 +256,6 @@ namespace CelebrationDemo
             Stretch(hudRect);
 
             BuildActorStrip(hudRect);
-            BuildTargetPrompt(hudRect);
             BuildControlHint(hudRect);
             BuildLogPanel(hudRect);
             BuildWorldBubbles(hudRect);
@@ -295,53 +279,6 @@ namespace CelebrationDemo
                 actorCardTexts[i] = AddText(card, "", 14, Color.white, TextAnchor.UpperLeft,
                     new Vector2(0.09f, 0.06f), new Vector2(0.97f, 0.94f));
             }
-        }
-
-        void BuildStationStrip(RectTransform parent)
-        {
-            var panel = Panel(parent, "共享工位", new Vector2(0.025f, 0.57f), new Vector2(0.335f, 0.745f), PanelColor);
-            AddText(panel, "共享工位", 16, Accent, TextAnchor.UpperLeft,
-                new Vector2(0.04f, 0.76f), new Vector2(0.43f, 0.98f));
-            AddText(panel, "多人加入会实时加速；离开后仍继续", 12, MutedText, TextAnchor.UpperRight,
-                new Vector2(0.40f, 0.76f), new Vector2(0.96f, 0.98f));
-
-            for (var i = 0; i < 2; i++)
-            {
-                var row = Panel(panel, i == 0 ? "切果工位" : "打发工位",
-                    new Vector2(0.04f, 0.40f - i * 0.32f),
-                    new Vector2(0.96f, 0.68f - i * 0.32f),
-                    new Color(0.07f, 0.09f, 0.13f, 0.95f));
-                stationTexts[i] = AddText(row, "", 13, Color.white, TextAnchor.UpperLeft,
-                    new Vector2(0.04f, 0.50f), new Vector2(0.96f, 0.93f));
-
-                var barBack = Image(row.gameObject, "进度底", new Color(0.02f, 0.025f, 0.04f, 1f));
-                var barBackRect = barBack.rectTransform;
-                barBackRect.anchorMin = new Vector2(0.04f, 0.13f);
-                barBackRect.anchorMax = new Vector2(0.96f, 0.42f);
-                barBackRect.offsetMin = barBackRect.offsetMax = Vector2.zero;
-                stationProgressRoots[i] = barBack.gameObject;
-                stationProgressBackgrounds[i] = barBack;
-                var fill = Image(barBack.gameObject, "进度", i == 0 ? new Color(0.98f, 0.34f, 0.32f, 1f) : new Color(0.36f, 0.76f, 1f, 1f));
-                var fillRect = fill.rectTransform;
-                Stretch(fillRect);
-                fill.type = UnityEngine.UI.Image.Type.Filled;
-                fill.fillMethod = UnityEngine.UI.Image.FillMethod.Horizontal;
-                fill.fillOrigin = 0;
-                fill.fillAmount = 0f;
-                stationProgressImages[i] = fill;
-                stationProgressRoots[i].SetActive(false);
-                stationProgressVisuals[i].normalFill = fill.color;
-                stationProgressVisuals[i].normalBackground = barBack.color;
-            }
-        }
-
-        void BuildTargetPrompt(RectTransform parent)
-        {
-            var panel = Panel(parent, "交互提示", new Vector2(0.285f, 0.025f), new Vector2(0.695f, 0.18f), PanelLightColor);
-            targetPromptText = AddText(panel, "靠近目标以互动", 20, Color.white, TextAnchor.MiddleCenter,
-                new Vector2(0.03f, 0.24f), new Vector2(0.97f, 0.91f));
-            AddText(panel, "唯一交互提示", 11, MutedText, TextAnchor.MiddleCenter,
-                new Vector2(0.03f, 0.03f), new Vector2(0.97f, 0.24f));
         }
 
         void BuildControlHint(RectTransform parent)
@@ -482,7 +419,6 @@ namespace CelebrationDemo
                 actorCardTexts[actorId - 1].color = ActorColor(actorId);
             }
 
-            RefreshTargetPrompt();
         }
 
         void RefreshWorldLabels()
@@ -501,24 +437,18 @@ namespace CelebrationDemo
                     worldLabels[target] = label;
                 }
 
-                var title = string.IsNullOrEmpty(target.DisplayName)
-                    ? TargetKindName(target.Spec.Kind)
-                    : target.DisplayName;
+                var offer = runtime.Session.Resolve(runtime.ActiveActorId, target.Spec);
+                var executable = offer != null && offer.CanExecute;
                 var station = target.Spec.Kind == TargetKind.CutStation
                     ? runtime.Session.CutStation
                     : target.Spec.Kind == TargetKind.WhipStation ? runtime.Session.WhipStation : null;
+                label.title.text = FormatTargetPrompt(target, offer);
                 if (station != null)
-                {
-                    var people = station.ParticipantIds == null ? 0 : station.ParticipantIds.Count;
-                    label.title.text = title + "\n" + (station.IsRunning ? "制作中 " : "待机 ") +
-                        people + "人";
-                }
+                    RefreshStationWorldProgress(label, station);
                 else
-                {
-                    label.title.text = (target == runtime.CurrentTarget ? "◆ " : "") + title;
-                }
+                    HideStationWorldProgress(label);
                 label.anchor = TargetAnchor(target);
-                label.root.SetActive(target == runtime.CurrentTarget);
+                label.root.SetActive(target == runtime.CurrentTarget && executable);
             }
 
             var stale = new List<TargetView>();
@@ -537,126 +467,67 @@ namespace CelebrationDemo
             var objectLabel = new GameObject("世界目标标签", typeof(RectTransform), typeof(Image));
             objectLabel.transform.SetParent(worldBubbleRoot, false);
             var rect = objectLabel.GetComponent<RectTransform>();
-            rect.sizeDelta = new Vector2(175f, 46f);
+            rect.sizeDelta = new Vector2(210f, 68f);
             var background = objectLabel.GetComponent<Image>();
             background.color = new Color(0.015f, 0.025f, 0.045f, 0.78f);
             var title = AddText(rect, "", 13, Color.white, TextAnchor.MiddleCenter,
-                new Vector2(0.03f, 0.27f), new Vector2(0.97f, 0.97f));
+                new Vector2(0.03f, 0.28f), new Vector2(0.97f, 0.97f));
             title.horizontalOverflow = HorizontalWrapMode.Wrap;
             title.verticalOverflow = VerticalWrapMode.Truncate;
+
+            var progressRootObject = new GameObject("加工进度", typeof(RectTransform));
+            progressRootObject.transform.SetParent(rect, false);
+            var progressRoot = progressRootObject.GetComponent<RectTransform>();
+            progressRoot.anchorMin = new Vector2(0.08f, 0.06f);
+            progressRoot.anchorMax = new Vector2(0.92f, 0.23f);
+            progressRoot.offsetMin = progressRoot.offsetMax = Vector2.zero;
+
+            var progressBackground = Image(progressRootObject, "进度底", new Color(0.02f, 0.025f, 0.04f, 0.95f));
+            Stretch(progressBackground.rectTransform);
+            var progressFill = Image(progressRootObject, "进度", new Color(0.98f, 0.78f, 0.24f, 1f));
+            Stretch(progressFill.rectTransform);
+            progressFill.type = UnityEngine.UI.Image.Type.Filled;
+            progressFill.fillMethod = UnityEngine.UI.Image.FillMethod.Horizontal;
+            progressFill.fillOrigin = 0;
+            progressFill.fillAmount = 0f;
+            var progressText = AddText(progressRootObject.transform, "0%", 10, Color.white,
+                TextAnchor.MiddleCenter, Vector2.zero, Vector2.one);
+            progressText.horizontalOverflow = HorizontalWrapMode.Overflow;
+            progressText.verticalOverflow = VerticalWrapMode.Overflow;
+            progressRootObject.SetActive(false);
+
             return new WorldLabel
             {
                 root = objectLabel,
                 rect = rect,
                 title = title,
+                progressRoot = progressRootObject,
+                progressFill = progressFill,
+                progressText = progressText,
                 anchor = TargetAnchor(target)
             };
         }
 
-        void RefreshStations()
+        static void HideStationWorldProgress(WorldLabel label)
         {
-            var stations = new[] { runtime.Session.CutStation, runtime.Session.WhipStation };
-            var labels = new[] { "切水果", "打发奶油" };
-            for (var i = 0; i < stations.Length; i++)
-            {
-                var station = stations[i];
-                if (station == null) continue;
-                var participants = station.ParticipantIds == null
-                    ? ""
-                    : string.Join("、", station.ParticipantIds.Distinct().Select(id => id + "号"));
-                stationTexts[i].text = labels[i] + "    " + (station.IsRunning ? "制作中" : "空闲") +
-                    (string.IsNullOrEmpty(participants) ? "" : "    参与 " + participants);
-                RefreshStationProgress(i, station);
-            }
+            if (label != null && label.progressRoot != null) label.progressRoot.SetActive(false);
         }
 
-        void RefreshStationProgress(int index, StationState station)
+        static void RefreshStationWorldProgress(WorldLabel label, StationState station)
         {
-            var visual = stationProgressVisuals[index];
-            var root = stationProgressRoots[index];
-            var background = stationProgressBackgrounds[index];
-            var fill = stationProgressImages[index];
-            if (visual == null || root == null || background == null || fill == null || station == null)
+            if (label == null || label.progressRoot == null || label.progressFill == null ||
+                label.progressText == null || station == null)
                 return;
-
-            if (station.IsRunning)
+            if (!station.IsRunning)
             {
-                visual.batchId = station.BatchId;
-                visual.wasRunning = true;
-                visual.completionAnimating = false;
-                root.SetActive(true);
-                background.color = visual.normalBackground;
-                fill.color = visual.normalFill;
-                fill.fillAmount = Mathf.Clamp01(station.Progress);
+                label.progressRoot.SetActive(false);
                 return;
             }
 
-            if (visual.wasRunning && station.Progress >= 1f && !visual.completionAnimating)
-            {
-                visual.wasRunning = false;
-                visual.completionAnimating = true;
-                visual.completionStartedAt = Time.unscaledTime;
-            }
-
-            if (visual.completionAnimating)
-            {
-                var phase = Mathf.FloorToInt((Time.unscaledTime - visual.completionStartedAt) /
-                    CompletionFlashPhase);
-                if (phase >= CompletionFlashCount)
-                {
-                    visual.completionAnimating = false;
-                    root.SetActive(false);
-                    background.color = visual.normalBackground;
-                    fill.color = visual.normalFill;
-                    fill.fillAmount = 0f;
-                    return;
-                }
-
-                var visible = phase % 2 == 0;
-                root.SetActive(visible);
-                background.color = visible ? CompletionFlashColor : visual.normalBackground;
-                fill.color = visible ? CompletionFlashColor : visual.normalFill;
-                fill.fillAmount = 1f;
-                return;
-            }
-
-            visual.wasRunning = false;
-            root.SetActive(false);
-            fill.fillAmount = 0f;
-        }
-
-        void ResetStationProgressVisuals()
-        {
-            for (var i = 0; i < stationProgressVisuals.Length; i++)
-            {
-                var visual = stationProgressVisuals[i];
-                visual.wasRunning = false;
-                visual.completionAnimating = false;
-                visual.completionStartedAt = 0f;
-                visual.batchId = 0;
-                if (stationProgressRoots[i] != null) stationProgressRoots[i].SetActive(false);
-                if (stationProgressBackgrounds[i] != null)
-                    stationProgressBackgrounds[i].color = visual.normalBackground;
-                if (stationProgressImages[i] != null)
-                {
-                    stationProgressImages[i].color = visual.normalFill;
-                    stationProgressImages[i].fillAmount = 0f;
-                }
-            }
-        }
-
-        void RefreshTargetPrompt()
-        {
-            if (targetPromptText == null) return;
-            var target = runtime.CurrentTarget;
-            if (target == null || target.Spec == null)
-            {
-                targetPromptText.text = "靠近目标以互动";
-                return;
-            }
-
-            var offer = runtime.Session.Resolve(runtime.ActiveActorId, target.Spec);
-            targetPromptText.text = FormatTargetPrompt(target, offer);
+            var progress = Mathf.Clamp01(station.Progress);
+            label.progressRoot.SetActive(true);
+            label.progressFill.fillAmount = progress;
+            label.progressText.text = Mathf.RoundToInt(progress * 100f) + "%";
         }
 
         /// <summary>
@@ -665,15 +536,12 @@ namespace CelebrationDemo
         /// </summary>
         internal static string FormatTargetPrompt(TargetView target, InteractionOffer offer)
         {
-            if (target == null || target.Spec == null) return "靠近目标以互动";
+            if (target == null || target.Spec == null || offer == null || !offer.CanExecute)
+                return string.Empty;
             var displayName = string.IsNullOrEmpty(target.DisplayName)
                 ? TargetKindName(target.Spec.Kind)
                 : target.DisplayName;
-            if (offer != null && offer.CanExecute)
-                return "[F] " + offer.Label + "\n" + displayName;
-            if (offer != null)
-                return "[F] " + offer.Label + "\n" + displayName;
-            return "[F] 互动\n" + displayName;
+            return "[F]" + offer.Label + "\n" + displayName;
         }
 
         void RefreshRecentLogs()
@@ -1030,14 +898,6 @@ namespace CelebrationDemo
             return null;
         }
 
-        TargetView FindTarget(string targetId)
-        {
-            if (string.IsNullOrEmpty(targetId) || runtime == null || runtime.Targets == null) return null;
-            foreach (var target in runtime.Targets)
-                if (target != null && target.Spec != null && target.Spec.Id == targetId) return target;
-            return null;
-        }
-
         Transform ActorAnchor(ActorView actor)
         {
             return actor.HeadAnchor != null ? actor.HeadAnchor : actor.transform;
@@ -1229,21 +1089,14 @@ namespace CelebrationDemo
             public int stack;
         }
 
-        sealed class StationProgressVisual
-        {
-            public int batchId;
-            public bool wasRunning;
-            public bool completionAnimating;
-            public float completionStartedAt;
-            public Color normalFill;
-            public Color normalBackground;
-        }
-
         sealed class WorldLabel
         {
             public GameObject root;
             public RectTransform rect;
             public Text title;
+            public GameObject progressRoot;
+            public Image progressFill;
+            public Text progressText;
             public Transform anchor;
         }
     }
