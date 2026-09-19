@@ -60,21 +60,9 @@ namespace CelebrationDemo
             Require(runtime != null && runtime.Session != null, "Runtime initialized");
             Require(runtime.Actors.Length == 3 && runtime.Targets.Length == 19, "Scene contents");
             yield return VerifyMovementAndBoundary();
+            yield return VerifyActorSwitching();
             runtime.ResetDemo();
             yield return null;
-            yield return PressKey(Key.Digit2);
-            Require(runtime.ActiveActorId == 2, "Keyboard 2 selects the second actor");
-            var firstPosition = runtime.GetActorView(1).transform.position;
-            var secondPosition = runtime.GetActorView(2).transform.position;
-            InputSystem.QueueStateEvent(testKeyboard, new KeyboardState(Key.D));
-            yield return new WaitForSeconds(.15f);
-            InputSystem.QueueStateEvent(testKeyboard, new KeyboardState());
-            yield return null;
-            Require(Vector2.Distance(new Vector2(firstPosition.x, firstPosition.z),
-                new Vector2(runtime.GetActorView(1).transform.position.x, runtime.GetActorView(1).transform.position.z)) < .05f,
-                "WASD does not move the unselected actor");
-            Require(Vector3.Distance(secondPosition, runtime.GetActorView(2).transform.position) > .1f,
-                "WASD moves the selected actor");
             runtime.ResetDemo();
             yield return null;
             yield return new WaitForEndOfFrame();
@@ -185,6 +173,39 @@ namespace CelebrationDemo
             yield return HoldKeys(7f, Key.S);
             Require(actor.transform.position.z > -16.45f && actor.transform.position.z < -15.8f,
                 "South boundary keeps the primary actor inside the ground");
+        }
+
+        IEnumerator VerifyActorSwitching()
+        {
+            runtime.ResetDemo();
+            yield return null;
+
+            int[] actorIds = { 1, 2, 3 };
+            Key[] selectKeys = { Key.Digit1, Key.Digit2, Key.Digit3 };
+            Key[] movementKeys = { Key.D, Key.RightArrow, Key.A };
+            for (int index = 0; index < actorIds.Length; index++)
+            {
+                int actorId = actorIds[index];
+                yield return PressKey(selectKeys[index]);
+                Require(runtime.ActiveActorId == actorId, "Keyboard " + actorId + " selects actor " + actorId);
+
+                var before = runtime.Actors.ToDictionary(actor => actor.ActorId,
+                    actor => actor.transform.position);
+                foreach (var actor in runtime.Actors)
+                    Require(actor != null && actor.gameObject.activeInHierarchy && actor.enabled,
+                        "Actor remains enabled after selecting " + actorId);
+
+                yield return HoldKeys(.15f, movementKeys[index]);
+                Require(HorizontalDistance(before[actorId], runtime.GetActorView(actorId).transform.position) > .1f,
+                    "Selected actor " + actorId + " responds to movement");
+                foreach (var actor in runtime.Actors)
+                    if (actor.ActorId != actorId)
+                        Require(HorizontalDistance(before[actor.ActorId], actor.transform.position) < .05f,
+                            "Unselected actor " + actor.ActorId + " keeps position while actor " + actorId + " moves");
+            }
+
+            yield return PressKey(Key.Digit1);
+            Require(runtime.ActiveActorId == 1, "Switching back to actor 1 remains available");
         }
 
         IEnumerator HoldKeys(float seconds, params Key[] keys)

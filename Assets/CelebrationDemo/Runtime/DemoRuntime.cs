@@ -66,28 +66,37 @@ namespace CelebrationDemo
             }
 
             bool blocked = Hud != null && Hud.IsModalOpen;
-            Vector2 movement = Vector2.zero;
-            if (!blocked && !switched && keyboard != null)
-            {
-                movement = new Vector2(
-                    (keyboard.dKey.isPressed || keyboard.rightArrowKey.isPressed ? 1 : 0)
-                    - (keyboard.aKey.isPressed || keyboard.leftArrowKey.isPressed ? 1 : 0),
-                    (keyboard.wKey.isPressed || keyboard.upArrowKey.isPressed ? 1 : 0)
-                    - (keyboard.sKey.isPressed || keyboard.downArrowKey.isPressed ? 1 : 0));
-                movement = Vector2.ClampMagnitude(movement, 1f);
-            }
-
-            // Unselected actors receive zero movement but remain alive in the shared simulation.
-            if (Actors != null)
-                foreach (var actor in Actors)
-                    if (actor != null)
-                        actor.Move(actor.ActorId == ActiveActorId ? movement : Vector2.zero,
-                            Session.GetSpeed(actor.ActorId), gameplayCamera);
+            Vector2 movement = !blocked && !switched && keyboard != null
+                ? ReadMovement(keyboard)
+                : Vector2.zero;
+            RouteMovement(movement);
 
             SetTarget(blocked ? null : FindTarget());
             if (!blocked && !switched && keyboard != null && keyboard.fKey.wasPressedThisFrame)
                 Interact();
             RefreshWorld();
+        }
+
+        /// <summary>Reads the one shared keyboard and keeps diagonal input normalized.</summary>
+        static Vector2 ReadMovement(Keyboard keyboard)
+        {
+            var movement = new Vector2(
+                (keyboard.dKey.isPressed || keyboard.rightArrowKey.isPressed ? 1 : 0)
+                - (keyboard.aKey.isPressed || keyboard.leftArrowKey.isPressed ? 1 : 0),
+                (keyboard.wKey.isPressed || keyboard.upArrowKey.isPressed ? 1 : 0)
+                - (keyboard.sKey.isPressed || keyboard.downArrowKey.isPressed ? 1 : 0));
+            return Vector2.ClampMagnitude(movement, 1f);
+        }
+
+        /// <summary>
+        /// Routes the shared input to the active actor only. Other ActorView instances
+        /// remain enabled and keep their own transforms and state untouched.
+        /// </summary>
+        void RouteMovement(Vector2 movement)
+        {
+            var actor = GetActorView(ActiveActorId);
+            if (actor == null || Session == null) return;
+            actor.Move(movement, Session.GetSpeed(ActiveActorId), gameplayCamera);
         }
 
         public ActorView GetActorView(int actorId)

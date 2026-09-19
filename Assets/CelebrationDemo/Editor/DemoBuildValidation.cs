@@ -41,6 +41,8 @@ namespace CelebrationDemo
             Require(runtime.Actors != null && runtime.Actors.Length == 3, "Expected three wired actors");
             Require(runtime.Actors.All(a => a != null), "Actor reference missing");
             Require(runtime.Actors.Select(a => a.ActorId).OrderBy(id => id).SequenceEqual(new[] { 1, 2, 3 }), "Actor identities");
+            Require(runtime.ActiveActorId == 1 && runtime.GetActorView(1) == runtime.Actors[0],
+                "Actor 1 is the default active input target");
             ValidateActors(runtime.Actors);
             Require(runtime.CameraRig != null && runtime.CameraRig.GetComponent<Camera>() != null, "Camera missing");
             Require(runtime.Hud != null, "HUD missing");
@@ -70,6 +72,8 @@ namespace CelebrationDemo
                 var actorId = index + 1;
                 Require(actor.ActorId == actorId, "Actor array order must match ActorId " + actorId);
                 Require(actor.name == "Actor " + actorId, "Actor name/identity mismatch for " + actorId);
+                Require(actor.gameObject.activeSelf && actor.enabled,
+                    "Actor object remains enabled for " + actorId);
                 Require(actor.transform.Find("HeadAnchor") != null, "Head anchor missing for actor " + actorId);
                 Require(actor.transform.Find("SelectedMarker") != null, "Selection marker missing for actor " + actorId);
 
