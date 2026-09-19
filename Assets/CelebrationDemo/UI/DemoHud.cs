@@ -637,8 +637,10 @@ namespace CelebrationDemo
             var progressRootObject = new GameObject("加工进度", typeof(RectTransform), typeof(Image));
             progressRootObject.transform.SetParent(rect, false);
             var progressRoot = progressRootObject.GetComponent<RectTransform>();
-            progressRoot.anchorMin = new Vector2(0.08f, 0.03f);
-            progressRoot.anchorMax = new Vector2(0.92f, 0.23f);
+            // Keep the station progress readable while reducing its width to
+            // two thirds of the previous bar, centered under the target tag.
+            progressRoot.anchorMin = new Vector2(0.22f, 0.03f);
+            progressRoot.anchorMax = new Vector2(0.78f, 0.23f);
             progressRoot.offsetMin = progressRoot.offsetMax = Vector2.zero;
             progressRootObject.GetComponent<Image>().color = new Color(0.015f, 0.025f, 0.045f, 0.88f);
 
