@@ -17,6 +17,7 @@ namespace CelebrationDemo
         const string ScenePath = "Assets/Scenes/CelebrationPrototype.unity";
         const string GeneratedRootName = "CelebrationPrototypeGenerated";
         const string MaterialFolder = "Assets/CelebrationDemo/World/GeneratedMaterials";
+        const string SignFontPath = "Assets/ThirdParty/kenney_ui-pack/Font/Kenney Future.ttf";
         const float CameraPitch = 48f;
         // Keep the operation area at the same apparent scale as the original
         // prototype. The world grew outward around it; the camera should not
@@ -269,6 +270,7 @@ namespace CelebrationDemo
                 new Vector3(4.8f, 0.4f, 0.24f), material);
             sign.transform.rotation = Quaternion.LookRotation(direction, Vector3.up);
             sign.name = name + " [" + label + "]";
+            CreateSignText(sign.transform, label);
         }
 
         static void CreateZoneSign(Transform parent, string name, Vector3 position, string label, MaterialSet m)
@@ -287,16 +289,35 @@ namespace CelebrationDemo
             labelObject.transform.SetParent(parent, false);
             labelObject.transform.position = position + Vector3.up * 1.45f + Vector3.back * .12f;
             labelObject.transform.rotation = Quaternion.LookRotation(Vector3.back, Vector3.up);
-            var text = labelObject.AddComponent<TextMesh>();
+            ConfigureSignText(labelObject.AddComponent<TextMesh>(), label);
+        }
+
+        static void CreateSignText(Transform board, string label)
+        {
+            var labelObject = new GameObject(board.name + " Label");
+            labelObject.transform.SetParent(board, false);
+            labelObject.transform.localPosition = new Vector3(0f, 0f, .15f);
+            labelObject.transform.localRotation = Quaternion.identity;
+            ConfigureSignText(labelObject.AddComponent<TextMesh>(), label);
+        }
+
+        static void ConfigureSignText(TextMesh text, string label)
+        {
             text.text = label;
             text.anchor = TextAnchor.MiddleCenter;
             text.alignment = TextAlignment.Center;
             text.fontSize = 48;
-            text.characterSize = .075f;
+            text.characterSize = .1f;
             text.color = Color.white;
-            text.font = Font.CreateDynamicFontFromOSFont("Microsoft YaHei UI", 48);
-            if (text.font == null)
-                text.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            text.font = SignFont();
+        }
+
+        static Font SignFont()
+        {
+            var font = AssetDatabase.LoadAssetAtPath<Font>(SignFontPath);
+            if (font != null) return font;
+            font = Font.CreateDynamicFontFromOSFont("Microsoft YaHei UI", 18);
+            return font != null ? font : Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
         }
 
         static ActorView[] BuildActors(Transform parent, MaterialSet m)
@@ -399,6 +420,7 @@ namespace CelebrationDemo
             CreateZoneSign(parent, "Processing Zone Sign", new Vector3(-6f, 0f, 6.4f), "加工区", m);
             CreateZoneSign(parent, "Finished Zone Sign", new Vector3(9f, 0f, -7.8f), "成品区", m);
             CreateZoneSign(parent, "Trading Zone Sign", new Vector3(11f, 0f, 11.2f), "交易区", m);
+            CreateZoneSign(parent, "Celebration Sign", new Vector3(15f, 0f, 1.5f), "庆典开始", m);
 
             // Cake targets alternate fruit and cream around the six sectors.
             const float ringRadius = 2.25f;
