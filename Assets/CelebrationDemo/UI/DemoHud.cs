@@ -29,6 +29,10 @@ namespace CelebrationDemo
         static readonly Color PanelLightColor = new Color(0.08f, 0.115f, 0.17f, 0.94f);
         static readonly Color MutedText = new Color(0.72f, 0.78f, 0.86f, 1f);
         static readonly Color Accent = new Color(1f, 0.78f, 0.28f, 1f);
+        static readonly Color LogActionColor = new Color(0.38f, 0.78f, 1f, 1f);
+        static readonly Color LogPositiveColor = new Color(0.38f, 0.94f, 0.58f, 1f);
+        static readonly Color LogNegativeColor = new Color(1f, 0.42f, 0.42f, 1f);
+        static readonly Color LogNeutralResultColor = new Color(0.86f, 0.88f, 0.92f, 1f);
         [SerializeField] DemoRuntime runtime;
 
         Canvas canvas;
@@ -862,7 +866,7 @@ namespace CelebrationDemo
                 var attribution = ActorAttribution(action);
                 if (!string.IsNullOrEmpty(attribution)) message = attribution + "：" + message;
             }
-            return ColorizePlayers(message);
+            return ColorizeLogMessage(message, action);
         }
 
         static bool ContainsActorAttribution(string message, ActionEvent action)
@@ -918,15 +922,51 @@ namespace CelebrationDemo
                 .Trim(' ', '\t', '·', '；', ';', '，', ',', ':', '：', '-', '_', '[', ']');
         }
 
-        string ColorizePlayers(string text)
+        static string ColorizePlayers(string text)
         {
             if (string.IsNullOrEmpty(text)) return text;
             for (var actorId = 1; actorId <= 3; actorId++)
             {
                 var token = actorId + "号玩家";
-                text = text.Replace(token, "<color=#" + ColorUtility.ToHtmlStringRGB(ActorColor(actorId)) + ">" + token + "</color>");
+                text = ColorText(text, token, ActorColor(actorId));
             }
             return text;
+        }
+
+        static string ColorizeLogMessage(string message, ActionEvent action)
+        {
+            var result = ColorizeLogDeltas(message, action);
+            var actionTokens = new[]
+            {
+                "举办庆典", "颁发奖杯", "放置奖杯", "贴果切", "抹奶油", "重复加入",
+                "领取", "购买", "捐献", "偷吃", "开始", "加入", "完成", "查看"
+            };
+            foreach (var token in actionTokens)
+                result = ColorText(result, token, LogActionColor);
+            return ColorizePlayers(result);
+        }
+
+        static string ColorizeLogDeltas(string message, ActionEvent action)
+        {
+            if (string.IsNullOrEmpty(message) || action == null || action.DisplayDeltas == null)
+                return message;
+
+            foreach (var delta in action.DisplayDeltas.Distinct())
+            {
+                if (string.IsNullOrEmpty(delta)) continue;
+                var color = delta.IndexOf('+') >= 0
+                    ? LogPositiveColor
+                    : delta.IndexOf('-') >= 0 ? LogNegativeColor : LogNeutralResultColor;
+                message = ColorText(message, delta, color);
+            }
+            return message;
+        }
+
+        static string ColorText(string source, string token, Color color)
+        {
+            if (string.IsNullOrEmpty(source) || string.IsNullOrEmpty(token)) return source;
+            return source.Replace(token,
+                "<color=#" + ColorUtility.ToHtmlStringRGB(color) + ">" + token + "</color>");
         }
 
         Color LogColor(ActionEvent action)
