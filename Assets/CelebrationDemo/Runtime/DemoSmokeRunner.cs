@@ -59,6 +59,7 @@ namespace CelebrationDemo
         {
             Require(runtime != null && runtime.Session != null, "Runtime initialized");
             Require(runtime.Actors.Length == 3 && runtime.Targets.Length == 19, "Scene contents");
+            yield return VerifyMovementAndBoundary();
             runtime.ResetDemo();
             yield return null;
             yield return PressKey(Key.Digit2);
@@ -147,6 +148,58 @@ namespace CelebrationDemo
             Require(runtime.Session.History.Count == 0 && !runtime.Session.HasCelebrated, "Round reset clears history and settlement");
             Require(runtime.Session.GetActor(1).TrophyStatus == TrophyStatus.Unawarded, "Round reset clears trophies");
             yield return new WaitForSeconds(.5f);
+        }
+
+        IEnumerator VerifyMovementAndBoundary()
+        {
+            runtime.ResetDemo();
+            yield return null;
+
+            var actor = runtime.GetActorView(1);
+            Require(actor != null, "Primary actor available for movement checks");
+
+            Vector3 axisStart = actor.transform.position;
+            yield return HoldKeys(.35f, Key.W);
+            float axisDistance = HorizontalDistance(axisStart, actor.transform.position);
+            Require(axisDistance > .5f, "W moves the primary actor");
+
+            runtime.ResetDemo();
+            yield return null;
+            Vector3 diagonalStart = actor.transform.position;
+            yield return HoldKeys(.35f, Key.W, Key.D);
+            float diagonalDistance = HorizontalDistance(diagonalStart, actor.transform.position);
+            Require(diagonalDistance <= axisDistance * 1.12f + .1f,
+                "Diagonal movement is capped at the single-axis speed");
+
+            runtime.ResetDemo();
+            yield return null;
+            yield return HoldKeys(3.5f, Key.D);
+            Require(actor.transform.position.x > 20.8f && actor.transform.position.x < 21.45f,
+                "East boundary keeps the primary actor inside the ground");
+            yield return HoldKeys(3.5f, Key.W);
+            Require(actor.transform.position.z > 15.8f && actor.transform.position.z < 16.45f,
+                "North boundary keeps the primary actor inside the ground");
+            yield return HoldKeys(7f, Key.A);
+            Require(actor.transform.position.x > -21.45f && actor.transform.position.x < -20.8f,
+                "West boundary keeps the primary actor inside the ground");
+            yield return HoldKeys(7f, Key.S);
+            Require(actor.transform.position.z > -16.45f && actor.transform.position.z < -15.8f,
+                "South boundary keeps the primary actor inside the ground");
+        }
+
+        IEnumerator HoldKeys(float seconds, params Key[] keys)
+        {
+            InputSystem.QueueStateEvent(testKeyboard, new KeyboardState(keys));
+            yield return new WaitForSeconds(seconds);
+            InputSystem.QueueStateEvent(testKeyboard, new KeyboardState());
+            yield return null;
+        }
+
+        static float HorizontalDistance(Vector3 a, Vector3 b)
+        {
+            a.y = 0f;
+            b.y = 0f;
+            return Vector3.Distance(a, b);
         }
 
         IEnumerator Perform(TargetKind kind, int actorId, int index = 0, int owner = 0)
