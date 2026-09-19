@@ -36,7 +36,15 @@ namespace CelebrationDemo
         public static void ValidateScene()
         {
             EditorSceneManager.OpenScene(ScenePath);
-            var runtime = UnityEngine.Object.FindAnyObjectByType<DemoRuntime>();
+            var runtimeObjects = UnityEngine.Object.FindObjectsByType<DemoRuntime>();
+            Require(runtimeObjects.Length == 1, "Exactly one DemoRuntime must own scene input and session state");
+            var runtime = runtimeObjects[0];
+            Require(EditorBuildSettings.scenes.Length > 0 &&
+                EditorBuildSettings.scenes[0].enabled &&
+                EditorBuildSettings.scenes[0].path == ScenePath,
+                "CelebrationPrototype must be the enabled first build scene");
+            Require(GameObject.Find("CelebrationPrototypeGenerated") != null,
+                "Scene root must be owned by CelebrationSceneBuilder");
             Require(runtime != null, "Runtime missing");
             Require(runtime.Actors != null && runtime.Actors.Length == 3, "Expected three wired actors");
             Require(runtime.Actors.All(a => a != null), "Actor reference missing");
@@ -46,14 +54,22 @@ namespace CelebrationDemo
             ValidateActors(runtime.Actors);
             Require(runtime.CameraRig != null && runtime.CameraRig.GetComponent<Camera>() != null, "Camera missing");
             ValidateCamera(runtime.CameraRig);
-            Require(runtime.Hud != null, "HUD missing");
+            Require(runtime.Hud != null && runtime.Hud.isActiveAndEnabled, "HUD missing or disabled");
             Require(UnityEngine.Object.FindObjectsByType<Camera>().Length == 1, "Exactly one camera after scene generation");
             Require(UnityEngine.Object.FindObjectsByType<Collider>()
                 .Any(c => c.name == "Ground" && c.enabled && !c.isTrigger), "Solid ground collider missing");
+            ValidateMovementBoundaries();
             Require(runtime.Targets != null && runtime.Targets.Length == 19, "Expected 19 targets: 9 supplies/work + 6 cake + celebration + 3 trophy");
-            Require(runtime.Targets.Select(t => t.Spec.Id).Distinct().Count() == runtime.Targets.Length, "Duplicate target IDs");
-            Require(runtime.Targets.All(t => t != null && t.Spec != null && t.InteractionRadius > 0f),
+            Require(runtime.Targets.All(t => t != null), "Target reference missing");
+            Require(runtime.Targets.All(t => t.Spec != null && t.InteractionRadius > 0f),
                 "Every target needs a positive interaction radius and spec");
+            Require(runtime.Targets.Select(t => t.Spec.Id).All(id => !string.IsNullOrWhiteSpace(id)),
+                "Every target needs a non-empty stable ID");
+            Require(runtime.Targets.Select(t => t.Spec.Id).Distinct().Count() == runtime.Targets.Length, "Duplicate target IDs");
+            Require(runtime.Targets.All(t => t.FeedbackAnchor != null), "Every target needs a feedback anchor");
+            Require(runtime.Targets.All(t => !string.IsNullOrWhiteSpace(t.DisplayName) &&
+                t.DisplayName.Any(character => character >= '\u4E00' && character <= '\u9FFF')),
+                "Every target needs a readable Chinese interaction name");
             Require(runtime.Targets.All(t => t.transform.Find("Highlight") != null),
                 "Every target needs a highlight visual");
             Require(runtime.Targets.All(t => !t.transform.Find("Highlight").gameObject.activeSelf),
@@ -69,6 +85,7 @@ namespace CelebrationDemo
             Require(UnityEngine.Object.FindObjectsByType<PlayerInteractor>().Length == 0,
                 "Old input-reading PlayerInteractor must not run in the new scene");
             Debug.Log("CELEBRATION_SCENE_PASS: actor identities, 19 targets, ownership, references, input isolation");
+            Debug.Log("A08_STATIC_SCENE_PASS: build entry, boundaries, camera, target prompts, runtime/HUD wiring");
         }
 
         static void ValidateActors(ActorView[] actors)
@@ -81,6 +98,9 @@ namespace CelebrationDemo
                 Require(actor.name == "Actor " + actorId, "Actor name/identity mismatch for " + actorId);
                 Require(actor.gameObject.activeSelf && actor.enabled,
                     "Actor object remains enabled for " + actorId);
+                var controller = actor.GetComponent<CharacterController>();
+                Require(controller != null && controller.enabled,
+                    "CharacterController missing or disabled for actor " + actorId);
                 Require(actor.transform.Find("HeadAnchor") != null, "Head anchor missing for actor " + actorId);
                 Require(actor.transform.Find("SelectedMarker") != null, "Selection marker missing for actor " + actorId);
 
@@ -99,6 +119,31 @@ namespace CelebrationDemo
                     Require((actor.transform.position - actors[other].transform.position).sqrMagnitude > 1f,
                         "Actor spawn positions overlap");
             }
+
+            Require(actors.Count(actor => actor.transform.Find("SelectedMarker").gameObject.activeSelf) == 1 &&
+                actors[0].transform.Find("SelectedMarker").gameObject.activeSelf,
+                "Actor 1 must be the only initially selected actor");
+        }
+
+        static void ValidateMovementBoundaries()
+        {
+            ValidateBoundary("Boundary West", new Vector3(-21.8f, 0.5f, 0f), new Vector3(0.4f, 1f, 34f));
+            ValidateBoundary("Boundary East", new Vector3(21.8f, 0.5f, 0f), new Vector3(0.4f, 1f, 34f));
+            ValidateBoundary("Boundary North", new Vector3(0f, 0.5f, 16.8f), new Vector3(44f, 1f, 0.4f));
+            ValidateBoundary("Boundary South", new Vector3(0f, 0.5f, -16.8f), new Vector3(44f, 1f, 0.4f));
+        }
+
+        static void ValidateBoundary(string name, Vector3 expectedPosition, Vector3 expectedScale)
+        {
+            var boundary = GameObject.Find(name);
+            Require(boundary != null, "Missing movement boundary " + name);
+            var collider = boundary.GetComponent<BoxCollider>();
+            Require(collider != null && collider.enabled && !collider.isTrigger,
+                "Movement boundary must be a solid BoxCollider: " + name);
+            Require(Vector3.Distance(boundary.transform.position, expectedPosition) < 0.001f,
+                "Movement boundary position mismatch: " + name);
+            Require(Vector3.Distance(boundary.transform.lossyScale, expectedScale) < 0.001f,
+                "Movement boundary size mismatch: " + name);
         }
 
         static void ValidateCamera(FixedAngleCamera cameraRig)
