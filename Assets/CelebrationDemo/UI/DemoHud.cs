@@ -94,23 +94,14 @@ namespace CelebrationDemo
             // idempotent path used by the per-frame HUD refresh.
             RefreshRecentLogs();
 
-            // Shared completion events carry a participant list.  Give every
-            // real participant the same short actor feedback and keep the
-            // single shared output line in the log.
-            if (action.ActorId != 0)
+            // Only personal resource/effect changes become head feedback.
+            // Shared completion and completion-count bookkeeping remain in the
+            // log, but are intentionally silent above the actors.
+            if (ShouldShowActorFeedback(action) && action.ActorId != 0)
             {
                 var actor = FindActor(action.ActorId);
                 SpawnBubble(actor != null ? ActorAnchor(actor) : null,
                     ShortFeedback(action.ActorText, action.Message, action.TargetId), ActorColor(action.ActorId));
-            }
-            else if (action.ParticipantIds != null)
-            {
-                foreach (var actorId in action.ParticipantIds.Distinct())
-                {
-                    var actor = FindActor(actorId);
-                    SpawnBubble(actor != null ? ActorAnchor(actor) : null,
-                        ShortFeedback(action.ActorText, action.Message, action.TargetId), ActorColor(actorId));
-                }
             }
 
         }
@@ -680,13 +671,11 @@ namespace CelebrationDemo
         {
             if (anchor == null || string.IsNullOrEmpty(content) || worldBubbleRoot == null) return;
             PruneExpiredBubbles();
-            var objectBubble = new GameObject("反馈飘字", typeof(RectTransform), typeof(Image));
+            var objectBubble = new GameObject("反馈飘字", typeof(RectTransform));
             objectBubble.transform.SetParent(worldBubbleRoot, false);
             var rect = objectBubble.GetComponent<RectTransform>();
             rect.sizeDelta = new Vector2(220f, 38f);
-            var background = objectBubble.GetComponent<Image>();
-            background.color = new Color(0.015f, 0.025f, 0.045f, 0.88f);
-            var text = AddText(rect, content, 16, color, TextAnchor.MiddleCenter,
+            var text = AddText(rect, content, HudFontSize, color, TextAnchor.MiddleCenter,
                 new Vector2(0.02f, 0.02f), new Vector2(0.98f, 0.98f));
             text.horizontalOverflow = HorizontalWrapMode.Wrap;
             text.verticalOverflow = VerticalWrapMode.Truncate;
@@ -701,6 +690,18 @@ namespace CelebrationDemo
                 expiresAt = Time.unscaledTime + BubbleLifetime,
                 stack = stack
             });
+        }
+
+        static bool ShouldShowActorFeedback(ActionEvent action)
+        {
+            if (action == null || action.ActorId == 0) return false;
+            if (string.Equals(action.ActionType, "切水果完成统计", StringComparison.Ordinal) ||
+                string.Equals(action.ActionType, "打发奶油完成统计", StringComparison.Ordinal))
+                return false;
+
+            var actorText = action.ActorText ?? string.Empty;
+            return actorText.IndexOf("协作完成", StringComparison.Ordinal) < 0 &&
+                actorText.IndexOf("完成次数", StringComparison.Ordinal) < 0;
         }
 
         void UpdateBubbles()
