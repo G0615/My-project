@@ -20,6 +20,7 @@ namespace CelebrationDemo
             ShopEggInteractionKeepsActorOwnershipAndCountsPurchases();
             FruitPileDonationKeepsActorOwnershipWithoutInventoryPrerequisite();
             EggPileDonationKeepsActorOwnershipWithoutInventoryPrerequisite();
+            BasicActionsRoundRobinAcceptance();
             EventHistoryIsCommittedBeforeNotification();
             SharedWorkIsUniqueAndKeepsParticipants();
             SharedWorkUsesOneTwoThreePersonDurations();
@@ -304,6 +305,162 @@ namespace CelebrationDemo
                 session.History.All(item => item.ActionType != "偷吃") &&
                 session.History.All(item => item.TargetId == target.Id),
                 "each actor qualifies once and egg donation history never targets the fruit pile or stealing");
+        }
+
+        static void BasicActionsRoundRobinAcceptance()
+        {
+            var session = new DemoSession();
+            var actions = new[]
+            {
+                new TargetSpec("home-fruit", TargetKind.HomeFruit),
+                new TargetSpec("fruit-pile", TargetKind.FruitPile),
+                new TargetSpec("shop-egg", TargetKind.ShopEgg),
+                new TargetSpec("egg-pile", TargetKind.EggPile)
+            };
+            var labels = new[] { "领取水果", "捐献水果", "购买鸡蛋", "捐献鸡蛋" };
+            var messages = new[] { "水果 +1", "捐献水果", "金币 -1，鸡蛋 +1", "捐献鸡蛋" };
+
+            // One fresh session exercises the complete B04-B07 path. Each actor
+            // takes the same four actions in the authored order before actor two
+            // repeats the full sequence, making the event-only nature of deltas
+            // observable without introducing any balance or inventory state.
+            for (var actorId = 1; actorId <= 3; actorId++)
+            {
+                for (var actionIndex = 0; actionIndex < actions.Length; actionIndex++)
+                {
+                    Check(!session.HasChopsticks(actorId),
+                        "round-robin actor " + actorId + " has no chopsticks before action " + (actionIndex + 1));
+                    var offer = session.Resolve(actorId, actions[actionIndex]);
+                    Check(offer.CanExecute && offer.Label == labels[actionIndex],
+                        "round-robin action " + labels[actionIndex] + " resolves for actor " + actorId);
+                    var outcome = session.Execute(actorId, actions[actionIndex]);
+                    Check(outcome.Success && outcome.ActorId == actorId && outcome.Message == messages[actionIndex],
+                        "round-robin action " + labels[actionIndex] + " succeeds for actor " + actorId);
+                }
+            }
+
+            // Repeating the same four F actions for one actor adds events only;
+            // it cannot create a hidden persistent resource total.
+            for (var actionIndex = 0; actionIndex < actions.Length; actionIndex++)
+                session.Execute(2, actions[actionIndex]);
+
+            Check(session.History.Count == 16, "round-robin sequence records twelve actions plus four repeats");
+            Check(session.History.Select(item => item.EventId).Distinct().Count() == session.History.Count,
+                "round-robin events keep unique event IDs");
+            Check(session.History.Select(item => item.Sequence).Distinct().Count() == session.History.Count &&
+                session.History.Select(item => item.Sequence).SequenceEqual(Enumerable.Range(1, 16).Select(value => (long)value)),
+                "round-robin events keep unique contiguous sequences");
+
+            var expectedActorHistory = new[] { 4, 8, 4 };
+            for (var actorIndex = 0; actorIndex < expectedActorHistory.Length; actorIndex++)
+            {
+                var actorId = actorIndex + 1;
+                var actorHistory = session.GetHistory(actorId);
+                Check(actorHistory.Count == expectedActorHistory[actorIndex] &&
+                    actorHistory.All(item => item.ActorId == actorId),
+                    "round-robin personal history stays scoped to actor " + actorId);
+            }
+
+            for (var eventIndex = 0; eventIndex < session.History.Count; eventIndex++)
+            {
+                var action = session.History[eventIndex];
+                var actorId = eventIndex < 12 ? eventIndex / 4 + 1 : 2;
+                var actionIndex = eventIndex < 12 ? eventIndex % 4 : eventIndex - 12;
+                var target = actions[actionIndex];
+                Check(action.ActivityId == session.ActivityId && action.Sequence == eventIndex + 1L &&
+                    action.EventId == session.ActivityId + "-" + (eventIndex + 1L) &&
+                    action.ActorId == actorId && action.TargetId == target.Id &&
+                    action.ParticipantIds.Length == 0,
+                    "round-robin event keeps order, actor, target, and activity identity " + (eventIndex + 1));
+
+                string expectedActorText;
+                string expectedTargetText;
+                string expectedActionType;
+                if (actionIndex == 0)
+                {
+                    expectedActionType = "领取水果";
+                    expectedActorText = "[水果]+1";
+                    expectedTargetText = "已领取水果";
+                }
+                else if (actionIndex == 1)
+                {
+                    expectedActionType = "捐献";
+                    expectedActorText = "[水果]-1";
+                    expectedTargetText = "广场[水果]+1";
+                }
+                else if (actionIndex == 2)
+                {
+                    expectedActionType = "购买鸡蛋";
+                    expectedActorText = "[金币]-1，[鸡蛋]+1";
+                    expectedTargetText = "已购买鸡蛋";
+                }
+                else
+                {
+                    expectedActionType = "捐献";
+                    expectedActorText = "[鸡蛋]-1";
+                    expectedTargetText = "广场[鸡蛋]+1";
+                }
+
+                Check(action.ActionType == expectedActionType && action.ActorText == expectedActorText &&
+                    action.TargetText == expectedTargetText,
+                    "round-robin actor and target feedback matches action " + (eventIndex + 1));
+                var messageHasExpectedActorText = action.Message.Contains(expectedActorText);
+                if (actionIndex == 2)
+                    messageHasExpectedActorText = action.Message.Contains("[金币]-1") &&
+                        action.Message.Contains("[鸡蛋]+1");
+                Check(messageHasExpectedActorText,
+                    "round-robin full message carries the actor feedback delta " + (eventIndex + 1));
+                Check(action.Message.IndexOf("偷吃", StringComparison.Ordinal) < 0 &&
+                    action.Message.IndexOf("筷子", StringComparison.Ordinal) < 0 &&
+                    action.Message.IndexOf("蛋糕", StringComparison.Ordinal) < 0 &&
+                    action.Message.IndexOf("庆典", StringComparison.Ordinal) < 0,
+                    "round-robin basic action does not enter later interaction phases " + (eventIndex + 1));
+
+                if (actionIndex == 0)
+                {
+                    Check(action.DisplayDeltas.SequenceEqual(new[] { actorId + "号玩家[水果]+1" }) &&
+                        action.StatChanges.Length == 0,
+                        "round-robin home claim exposes only its actor fruit delta " + (eventIndex + 1));
+                }
+                else if (actionIndex == 1)
+                {
+                    Check(action.DisplayDeltas.SequenceEqual(new[]
+                        { actorId + "号玩家[水果]-1", "广场[水果]+1" }) &&
+                        action.StatChanges.SequenceEqual(new[] { actorId + "号玩家[捐献次数]+1" }),
+                        "round-robin fruit donation separates deltas from its statistic " + (eventIndex + 1));
+                }
+                else if (actionIndex == 2)
+                {
+                    Check(action.DisplayDeltas.SequenceEqual(new[]
+                        { actorId + "号玩家[金币]-1", actorId + "号玩家[鸡蛋]+1" }) &&
+                        action.StatChanges.Length == 0,
+                        "round-robin egg purchase exposes only its actor deltas " + (eventIndex + 1));
+                }
+                else
+                {
+                    Check(action.DisplayDeltas.SequenceEqual(new[]
+                        { actorId + "号玩家[鸡蛋]-1", "广场[鸡蛋]+1" }) &&
+                        action.StatChanges.SequenceEqual(new[] { actorId + "号玩家[捐献次数]+1" }),
+                        "round-robin egg donation separates deltas from its statistic " + (eventIndex + 1));
+                }
+            }
+
+            Check(!session.HasCelebrated && !session.CutStation.IsRunning && !session.WhipStation.IsRunning &&
+                session.Cake.FruitStyles.All(style => style == 0) && session.Cake.CreamColors.All(color => color == 0),
+                "round-robin basic actions do not enter work, cake, or celebration state");
+            Check(!session.HasChopsticks(1) && !session.HasChopsticks(2) && !session.HasChopsticks(3) &&
+                session.GetActor(1).EatCount == 0 && session.GetActor(2).EatCount == 0 && session.GetActor(3).EatCount == 0 &&
+                session.GetActor(1).DonationCount == 2 && session.GetActor(2).DonationCount == 4 &&
+                session.GetActor(3).DonationCount == 2,
+                "round-robin donations stay donations without chopsticks or stealing");
+
+            var forbiddenStateNames = new[]
+            {
+                "Inventory", "Balance", "GoldBalance", "FruitStock", "EggStock", "FruitInventory", "EggInventory"
+            };
+            Check(!typeof(DemoSession).GetMembers().Any(member => forbiddenStateNames.Contains(member.Name)) &&
+                !typeof(ActorState).GetMembers().Any(member => forbiddenStateNames.Contains(member.Name)),
+                "round-robin rules have no persistent inventory or gold balance dependency");
         }
 
         static void EventHistoryIsCommittedBeforeNotification()
