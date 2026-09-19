@@ -189,7 +189,7 @@ namespace CelebrationDemo
                 DestroyBubbleAt(i);
 
             foreach (var pair in worldLabels)
-                if (pair.Value != null && pair.Value.root != null) Destroy(pair.Value.root);
+                DestroyWorldLabel(pair.Value);
             worldLabels.Clear();
 
             RefreshHud();
@@ -470,7 +470,9 @@ namespace CelebrationDemo
                 // visible even when the active actor switches or walks away;
                 // only the F prompt follows the current target selection.
                 var showProgress = station != null && station.IsRunning;
-                label.root.SetActive(showPrompt || showProgress);
+                // The prompt itself is a fixed screen-space element. The
+                // world label root is reserved for the station progress bar.
+                label.root.SetActive(showProgress);
                 label.promptRoot.SetActive(showPrompt && !showProgress);
                 if (showProgress)
                     RefreshStationWorldProgress(label, station);
@@ -483,10 +485,16 @@ namespace CelebrationDemo
                 if (!visibleTargets.Contains(pair.Key)) stale.Add(pair.Key);
             foreach (var target in stale)
             {
-                if (worldLabels[target] != null && worldLabels[target].root != null)
-                    Destroy(worldLabels[target].root);
+                DestroyWorldLabel(worldLabels[target]);
                 worldLabels.Remove(target);
             }
+        }
+
+        static void DestroyWorldLabel(WorldLabel label)
+        {
+            if (label == null) return;
+            if (label.root != null) Destroy(label.root);
+            if (label.promptRoot != null) Destroy(label.promptRoot);
         }
 
         WorldLabel CreateWorldLabel(TargetView target)
@@ -497,10 +505,14 @@ namespace CelebrationDemo
             rect.sizeDelta = new Vector2(210f, 76f);
 
             var promptObject = new GameObject("交互提示", typeof(RectTransform), typeof(Image));
-            promptObject.transform.SetParent(rect, false);
+            // Keep [F] away from the 3D target. It sits just above the lower
+            // right operation panel, while head bubbles and station progress
+            // remain anchored to their world positions.
+            promptObject.transform.SetParent(worldBubbleRoot, false);
             var promptRect = promptObject.GetComponent<RectTransform>();
-            promptRect.anchorMin = new Vector2(0.03f, 0.30f);
-            promptRect.anchorMax = new Vector2(0.97f, 0.97f);
+            promptRect.anchorMin = new Vector2(0.72f, 0.20f);
+            promptRect.anchorMax = new Vector2(0.98f, 0.28f);
+            promptRect.pivot = new Vector2(0.5f, 0.5f);
             promptRect.offsetMin = promptRect.offsetMax = Vector2.zero;
             promptObject.GetComponent<Image>().color = new Color(0.015f, 0.025f, 0.045f, 0.78f);
             var title = AddText(promptRect, "", HudFontSize, Color.white, TextAnchor.MiddleCenter,
