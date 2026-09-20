@@ -4,8 +4,10 @@ using UnityEngine;
 namespace CelebrationDemo
 {
     /// <summary>
-    /// Small runtime-only celebration effect: three particle bursts and a
-    /// world-space HappyBirthday title. It intentionally owns no game state.
+    /// Small celebration effect: three particle bursts and an authored
+    /// world-space HappyBirthday title. The title is kept in the scene as a
+    /// disabled child so its font, wording, transform, and style can be tuned
+    /// directly in the Inspector before the effect is played.
     /// </summary>
     public sealed class CelebrationFireworks : MonoBehaviour
     {
@@ -17,38 +19,104 @@ namespace CelebrationDemo
         }
 
         readonly List<Burst> bursts = new List<Burst>();
-        TextMesh birthdayText;
+        [SerializeField] TextMesh birthdayText;
+        Color authoredTextColor = Color.white;
+        Vector3 authoredTextScale = Vector3.one;
         float elapsed;
+
+        /// <summary>Scene-authored HappyBirthday TextMesh, exposed for the scene builder.</summary>
+        public TextMesh BirthdayText
+        {
+            get { return birthdayText; }
+            set { birthdayText = value; }
+        }
 
         public static CelebrationFireworks Create(Vector3 focus)
         {
+            // Prefer the disabled scene template. Instantiating it preserves
+            // any font and layout edits made in the Inspector while keeping
+            // the authored object hidden until the celebration begins.
+            var template = FindSceneTemplate();
+            if (template != null)
+            {
+                var cloneObject = Object.Instantiate(template.gameObject);
+                cloneObject.name = "庆典烟花 (运行时)";
+                cloneObject.SetActive(true);
+                var clone = cloneObject.GetComponent<CelebrationFireworks>();
+                clone.Initialize(focus, false);
+                return clone;
+            }
+
+            // Backward-compatible fallback for scenes created before the
+            // authored template was added.
             var root = new GameObject("庆典烟花");
             var fireworks = root.AddComponent<CelebrationFireworks>();
-            fireworks.Build(focus);
+            fireworks.Initialize(focus, true);
             return fireworks;
         }
 
-        void Build(Vector3 focus)
+        static CelebrationFireworks FindSceneTemplate()
+        {
+            var candidates = Object.FindObjectsByType<CelebrationFireworks>(
+                FindObjectsInactive.Include);
+            for (int i = 0; i < candidates.Length; i++)
+            {
+                var candidate = candidates[i];
+                if (candidate == null || candidate.gameObject.activeInHierarchy ||
+                    !candidate.gameObject.scene.IsValid())
+                    continue;
+                if (candidate.transform.Find("HappyBirthday") != null)
+                    return candidate;
+            }
+            return null;
+        }
+
+        void Initialize(Vector3 focus, bool createFallbackTitle)
+        {
+            elapsed = 0f;
+            bursts.Clear();
+
+            if (birthdayText == null)
+            {
+                var title = transform.Find("HappyBirthday");
+                if (title != null) birthdayText = title.GetComponent<TextMesh>();
+            }
+            if (birthdayText == null && createFallbackTitle)
+                birthdayText = CreateFallbackTitle(focus);
+
+            if (birthdayText != null)
+            {
+                authoredTextColor = birthdayText.color;
+                if (authoredTextColor.a <= 0f) authoredTextColor.a = 1f;
+                authoredTextScale = birthdayText.transform.localScale;
+                if (authoredTextScale.sqrMagnitude <= 0.0001f) authoredTextScale = Vector3.one;
+                birthdayText.gameObject.SetActive(true);
+                birthdayText.color = authoredTextColor;
+            }
+
+            AddBurst(focus + new Vector3(-5f, 4.2f, .8f), new Color(1f, .24f, .48f), 0f);
+            AddBurst(focus + new Vector3(0f, 5.1f, 1.1f), new Color(1f, .78f, .22f), .65f);
+            AddBurst(focus + new Vector3(5f, 4.2f, .8f), new Color(.25f, .75f, 1f), 1.3f);
+        }
+
+        TextMesh CreateFallbackTitle(Vector3 focus)
         {
             var titleObject = new GameObject("HappyBirthday");
             titleObject.transform.SetParent(transform, false);
             titleObject.transform.position = focus + Vector3.up * 5.2f + Vector3.back * .2f;
             titleObject.transform.rotation = Quaternion.Euler(0f, 0f, 0f);
-            birthdayText = titleObject.AddComponent<TextMesh>();
-            birthdayText.text = "Happy\nBirthday";
-            birthdayText.anchor = TextAnchor.MiddleCenter;
-            birthdayText.alignment = TextAlignment.Center;
-            birthdayText.fontSize = 64;
-            birthdayText.characterSize = .12f;
-            birthdayText.fontStyle = FontStyle.Bold;
-            birthdayText.color = new Color(1f, .86f, .25f, 0f);
-            birthdayText.font = Font.CreateDynamicFontFromOSFont("Microsoft YaHei UI", 64);
-            if (birthdayText.font == null)
-                birthdayText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-
-            AddBurst(focus + new Vector3(-5f, 4.2f, .8f), new Color(1f, .24f, .48f), 0f);
-            AddBurst(focus + new Vector3(0f, 5.1f, 1.1f), new Color(1f, .78f, .22f), .65f);
-            AddBurst(focus + new Vector3(5f, 4.2f, .8f), new Color(.25f, .75f, 1f), 1.3f);
+            var text = titleObject.AddComponent<TextMesh>();
+            text.text = "Happy\nBirthday";
+            text.anchor = TextAnchor.MiddleCenter;
+            text.alignment = TextAlignment.Center;
+            text.fontSize = 64;
+            text.characterSize = .12f;
+            text.fontStyle = FontStyle.Bold;
+            text.color = new Color(1f, .86f, .25f, 1f);
+            text.font = Font.CreateDynamicFontFromOSFont("Microsoft YaHei UI", 64);
+            if (text.font == null)
+                text.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            return text;
         }
 
         void AddBurst(Vector3 position, Color color, float startAt)
@@ -113,10 +181,11 @@ namespace CelebrationDemo
             if (birthdayText != null)
             {
                 float fade = Mathf.Clamp01((elapsed - 3.6f) / 1.4f);
-                float alpha = Mathf.Lerp(.98f, 0f, fade);
-                birthdayText.color = new Color(1f, .86f, .25f, alpha);
+                float alpha = authoredTextColor.a * Mathf.Lerp(1f, 0f, fade);
+                birthdayText.color = new Color(authoredTextColor.r, authoredTextColor.g,
+                    authoredTextColor.b, alpha);
                 float pulse = 1f + Mathf.Sin(elapsed * 4f) * .04f;
-                birthdayText.transform.localScale = Vector3.one * pulse;
+                birthdayText.transform.localScale = authoredTextScale * pulse;
             }
         }
     }

@@ -66,6 +66,7 @@ namespace CelebrationDemo
 
             ActorView[] actors = BuildActors(generated.transform, materials);
             TargetView[] targets = BuildTargets(generated.transform, materials);
+            BuildFireworksTemplate(generated.transform);
             FixedAngleCamera cameraRig = BuildCamera(actors[0].transform, generated.transform);
 
             var runtimeObject = new GameObject("Demo Runtime");
@@ -360,6 +361,32 @@ namespace CelebrationDemo
                 result[i] = view;
             }
             return result;
+        }
+
+        static CelebrationFireworks BuildFireworksTemplate(Transform parent)
+        {
+            var root = new GameObject("庆典烟花");
+            root.transform.SetParent(parent, false);
+            root.SetActive(false);
+
+            var fireworks = root.AddComponent<CelebrationFireworks>();
+            var titleObject = new GameObject("HappyBirthday");
+            titleObject.transform.SetParent(root.transform, false);
+            titleObject.transform.localPosition = new Vector3(0f, 6.4f, 2.2f);
+            titleObject.transform.localRotation = Quaternion.Euler(0f, 0f, 0f);
+            titleObject.SetActive(false);
+
+            var text = titleObject.AddComponent<TextMesh>();
+            text.text = "Happy\nBirthday";
+            text.anchor = TextAnchor.MiddleCenter;
+            text.alignment = TextAlignment.Center;
+            text.fontSize = 64;
+            text.characterSize = .12f;
+            text.fontStyle = FontStyle.Bold;
+            text.color = new Color(1f, .86f, .25f, 1f);
+            text.font = SignFont();
+            fireworks.BirthdayText = text;
+            return fireworks;
         }
 
         static TargetView[] BuildTargets(Transform parent, MaterialSet m)
