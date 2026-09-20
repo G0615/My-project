@@ -57,6 +57,12 @@ namespace CelebrationDemo
             objectBurst.transform.SetParent(transform, false);
             objectBurst.transform.position = position;
             var system = objectBurst.AddComponent<ParticleSystem>();
+            // A newly added ParticleSystem can already be considered playing
+            // before its module properties are configured. Stop and clear it
+            // first so changing duration and other main-module values is
+            // legal on Unity 6 and does not emit the runtime error seen when
+            // the celebration starts.
+            system.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
             var main = system.main;
             main.loop = false;
             main.playOnAwake = false;
