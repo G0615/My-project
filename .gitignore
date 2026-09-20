@@ -81,6 +81,10 @@ mono_crash.*
 *.unitypackage.meta
 *.app
 
+# Third-party source assets are kept outside this Unity project.
+/Assets/ThirdParty/
+/Assets/ThirdParty.meta
+
 # Crashlytics generated file
 crashlytics-build.properties
 
