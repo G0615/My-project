@@ -76,6 +76,7 @@ namespace CelebrationDemo
 
         bool initialized;
         bool modalOpen;
+        bool mainHudVisible = true;
         int modalActorId;
 
         /// <summary>True while the modal review or celebration panel is visible.</summary>
@@ -95,6 +96,7 @@ namespace CelebrationDemo
             BuildHud();
             initialized = true;
             modalOpen = false;
+            mainHudVisible = true;
             if (modalRoot != null) modalRoot.SetActive(false);
             RefreshHud();
         }
@@ -221,6 +223,7 @@ namespace CelebrationDemo
         public void ResetView()
         {
             CloseModal();
+            SetMainHudVisible(true);
             HideCelebrationCountdown();
             ClearRecentLogs();
 
@@ -335,6 +338,25 @@ namespace CelebrationDemo
         {
             if (celebrationCountdownRoot != null)
                 celebrationCountdownRoot.SetActive(false);
+        }
+
+        /// <summary>
+        /// Hides the ordinary player/log/control HUD while the celebration
+        /// camera sequence is playing. The countdown and modal roots stay
+        /// available so the sequence can present its own UI and then open the
+        /// result panel without rebuilding the canvas.
+        /// </summary>
+        public void SetMainHudVisible(bool visible)
+        {
+            mainHudVisible = visible;
+            if (hudRoot == null) return;
+
+            for (var i = 0; i < hudRoot.transform.childCount; i++)
+            {
+                var child = hudRoot.transform.GetChild(i).gameObject;
+                if (child == celebrationCountdownRoot || child == modalRoot) continue;
+                child.SetActive(visible);
+            }
         }
 
         void BuildActorStrip(RectTransform parent)
@@ -531,6 +553,11 @@ namespace CelebrationDemo
         {
             if (capturePromptRoot == null || capturePromptText == null || runtime == null || runtime.Session == null)
                 return;
+            if (!mainHudVisible)
+            {
+                capturePromptRoot.SetActive(false);
+                return;
+            }
             var target = runtime.CurrentCaptureTarget;
             var visible = target != null && runtime.Session.HasChopsticks(runtime.ActiveActorId);
             capturePromptRoot.SetActive(visible);

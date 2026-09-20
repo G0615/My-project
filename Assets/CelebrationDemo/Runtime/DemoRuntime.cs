@@ -204,6 +204,8 @@ namespace CelebrationDemo
                 CameraRig.BeginCinematicView(CelebrationFocus, CelebrationCameraPitch,
                     CelebrationCountdownSeconds);
             if (Hud != null)
+                Hud.SetMainHudVisible(false);
+            if (Hud != null)
                 Hud.SetCelebrationCountdown(Mathf.CeilToInt(CelebrationCountdownSeconds));
         }
 
@@ -260,7 +262,11 @@ namespace CelebrationDemo
             var activeActor = GetActorView(ActiveActorId);
             if (CameraRig != null)
                 CameraRig.EndCinematicView(activeActor != null ? activeActor.transform : null);
-            if (Hud != null) Hud.ShowCelebration();
+            if (Hud != null)
+            {
+                Hud.SetMainHudVisible(true);
+                Hud.ShowCelebration();
+            }
         }
 
         public void ResetDemo()
