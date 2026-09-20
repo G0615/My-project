@@ -24,6 +24,10 @@ namespace CelebrationDemo
         // zoom out with the homes and boundaries.
         const float CameraOrthographicSize = 10.5f;
         const float WorldScale = 2f;
+        // Plaza has an 8.8-unit radius.  A 2.9-unit cake sector radius at
+        // this scale gives a 7.0-unit cake radius, approximately four-fifths
+        // of the plaza diameter while leaving a walkable outer ring.
+        const float CakeFootprintScale = 2.43f;
 
         static readonly Color GroundColor = new Color(0.18f, 0.28f, 0.30f);
         static readonly Color PlazaColor = new Color(0.44f, 0.57f, 0.58f);
@@ -238,10 +242,10 @@ namespace CelebrationDemo
                 float centerAngle = i * Mathf.PI / 3f;
                 CreateCakeSector(parent, "Cake Sector " + (i + 1) + " Base", cakeOrigin,
                     centerAngle - Mathf.PI / 6f, centerAngle + Mathf.PI / 6f,
-                    2.9f, 1.4f, m.Cake, 7);
+                    2.9f * CakeFootprintScale, 1.4f, m.Cake, 7);
                 CreateCakeSector(parent, "Cake Sector " + (i + 1) + " Top", cakeOrigin + Vector3.up * 1.4f,
                     centerAngle - Mathf.PI / 6f, centerAngle + Mathf.PI / 6f,
-                    2.55f, 0.12f, m.Cream, 7);
+                    2.55f * CakeFootprintScale, 0.12f, m.Cream, 7);
             }
             CreateVisual("Cake Candle", PrimitiveType.Cylinder, parent, new Vector3(cakeCenter.x, 2.15f, cakeCenter.z),
                 new Vector3(0.12f, 0.5f, 0.12f), m.Pink);
@@ -423,7 +427,7 @@ namespace CelebrationDemo
             CreateZoneSign(parent, "Celebration Sign", new Vector3(15f, 0f, 1.5f), "庆典开始", m);
 
             // Cake targets alternate fruit and cream around the six sectors.
-            const float ringRadius = 2.25f;
+            const float ringRadius = 2.25f * CakeFootprintScale;
             for (int i = 0; i < 6; i++)
             {
                 float angle = i * Mathf.PI / 3f;
@@ -557,9 +561,20 @@ namespace CelebrationDemo
             {
                 CreateVisual("StateVisual", PrimitiveType.Cylinder, root, attached,
                     new Vector3(.74f, .05f, .74f), m.DarkWood, false);
-                var decoration = CreateVisual("FruitDecoration", PrimitiveType.Sphere, root,
-                    attached + Vector3.up * .10f, new Vector3(.42f, .25f, .42f), m.Red, false);
-                decoration.SetActive(false);
+                Vector3[] fruitOffsets =
+                {
+                    new Vector3(-.18f, 0f, -.12f),
+                    new Vector3(0f, 0f, .12f),
+                    new Vector3(.18f, 0f, -.12f)
+                };
+                for (int i = 0; i < fruitOffsets.Length; i++)
+                {
+                    string fruitName = i == 0 ? "FruitDecoration" : "FruitDecoration " + (i + 1);
+                    var decoration = CreateVisual(fruitName, PrimitiveType.Sphere, root,
+                        attached + Vector3.up * .10f + fruitOffsets[i],
+                        new Vector3(.42f, .25f, .42f), m.Red, false);
+                    decoration.SetActive(false);
+                }
             }
             else
             {
