@@ -248,10 +248,26 @@ namespace CelebrationDemo
                     centerAngle - Mathf.PI / 6f, centerAngle + Mathf.PI / 6f,
                     2.55f * CakeFootprintScale, 0.12f, m.Cream, 7);
             }
-            CreateVisual("Cake Candle", PrimitiveType.Cylinder, parent, new Vector3(cakeCenter.x, 2.15f, cakeCenter.z),
-                new Vector3(0.12f, 0.5f, 0.12f), m.Pink);
-            CreateVisual("Cake Flame", PrimitiveType.Sphere, parent, new Vector3(cakeCenter.x, 2.72f, cakeCenter.z),
-                new Vector3(0.22f, 0.34f, 0.22f), m.Orange);
+            // The enlarged cake needs a small candle cluster rather than one
+            // thin candle that disappears at the new camera distance.
+            Vector3[] candleOffsets =
+            {
+                new Vector3(0f, 0f, 0f),
+                new Vector3(-.65f, 0f, -.45f),
+                new Vector3(.65f, 0f, -.45f),
+                new Vector3(-.7f, 0f, .5f),
+                new Vector3(.7f, 0f, .5f)
+            };
+            for (int i = 0; i < candleOffsets.Length; i++)
+            {
+                string suffix = i == 0 ? string.Empty : " " + (i + 1);
+                CreateVisual("Cake Candle" + suffix, PrimitiveType.Cylinder,
+                    parent, new Vector3(cakeCenter.x, 2.27f, cakeCenter.z) + candleOffsets[i],
+                    new Vector3(.18f, .7f, .18f), m.Pink);
+                CreateVisual("Cake Flame" + suffix, PrimitiveType.Sphere,
+                    parent, new Vector3(cakeCenter.x, 3.13f, cakeCenter.z) + candleOffsets[i],
+                    new Vector3(.3f, .45f, .3f), m.Orange);
+            }
         }
 
         static void CreateBuilding(Transform parent, string name, Vector3 position, Material wall, Material roof, Vector3 front)
