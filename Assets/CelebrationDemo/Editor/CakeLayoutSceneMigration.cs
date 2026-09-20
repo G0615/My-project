@@ -45,8 +45,16 @@ namespace CelebrationDemo
                 return;
             }
 
+            if (generated.transform.Find(MarkerName) != null)
+            {
+                Debug.Log("Cake collision and interaction layout is already applied.");
+                return;
+            }
+
             AddCakeColliders(generated.transform);
             MoveTargets(generated.transform);
+            ArrangeCakeVisuals(generated.transform);
+            MoveZoneSigns(generated.transform);
 
             if (generated.transform.Find(MarkerName) == null)
             {
@@ -95,6 +103,86 @@ namespace CelebrationDemo
 
                 if (TryGetCakePosition(target.Spec.Id, out position))
                     target.transform.position = position;
+            }
+        }
+
+        static void ArrangeCakeVisuals(Transform generated)
+        {
+            var targets = generated.GetComponentsInChildren<TargetView>(true);
+            foreach (var target in targets)
+            {
+                if (target.Spec == null ||
+                    (target.Spec.Kind != TargetKind.CakeFruit && target.Spec.Kind != TargetKind.CakeCream))
+                    continue;
+
+                Vector3 direction = new Vector3(target.transform.position.x, 0f,
+                    target.transform.position.z - CakeCenterZ);
+                if (direction.sqrMagnitude < .001f) continue;
+
+                Vector3 attached = -direction.normalized * 1.45f + Vector3.up * .42f;
+                var marker = target.transform.Find("TargetMarker");
+                if (marker != null) marker.localPosition = attached;
+
+                if (target.Spec.Kind != TargetKind.CakeFruit) continue;
+
+                Vector3[] offsets =
+                {
+                    new Vector3(-.18f, 0f, -.12f),
+                    new Vector3(0f, 0f, .12f),
+                    new Vector3(.18f, 0f, -.12f)
+                };
+                var state = target.transform.Find("StateVisual");
+                if (state == null) continue;
+
+                for (int i = 0; i < offsets.Length; i++)
+                {
+                    string stateName = i == 0 ? "StateVisual" : "StateVisual " + (i + 1);
+                    var slot = target.transform.Find(stateName);
+                    if (slot == null)
+                    {
+                        var clone = Object.Instantiate(state.gameObject, target.transform);
+                        clone.name = stateName;
+                        slot = clone.transform;
+                    }
+                    slot.localPosition = attached + offsets[i];
+                    slot.localRotation = Quaternion.identity;
+                    slot.localScale = new Vector3(.42f, .05f, .42f);
+                    slot.gameObject.SetActive(false);
+                }
+
+                for (int i = 0; i < offsets.Length; i++)
+                {
+                    var fruitName = i == 0 ? "FruitDecoration" : "FruitDecoration " + (i + 1);
+                    var fruit = target.transform.Find(fruitName);
+                    if (fruit == null) continue;
+                    fruit.localPosition = attached + Vector3.up * .10f + offsets[i];
+                }
+            }
+        }
+
+        static void MoveZoneSigns(Transform generated)
+        {
+            // The queue targets were authored five units farther back. Move
+            // each matching sign group together so the labels stay with the
+            // interaction rows, including the relocated trading/celebration
+            // targets at the two outer queue ends.
+            MoveSignGroup(generated, "Donation Zone Sign", 0f, -5f);
+            MoveSignGroup(generated, "Processing Zone Sign", 0f, -5f);
+            MoveSignGroup(generated, "Finished Zone Sign", 0f, -5f);
+            MoveSignGroup(generated, "Donation Zone Sign Right", 0f, -5f);
+            MoveSignGroup(generated, "Processing Zone Sign Right", 0f, -5f);
+            MoveSignGroup(generated, "Finished Zone Sign Right", 0f, -5f);
+            MoveSignGroup(generated, "Trading Zone Sign", -13f, -5f);
+            MoveSignGroup(generated, "Celebration Sign", 13f, -5f);
+        }
+
+        static void MoveSignGroup(Transform generated, string prefix, float deltaX, float deltaZ)
+        {
+            var children = generated.GetComponentsInChildren<Transform>(true);
+            foreach (var child in children)
+            {
+                if (!child.name.StartsWith(prefix, System.StringComparison.Ordinal)) continue;
+                child.position += new Vector3(deltaX, 0f, deltaZ);
             }
         }
 

@@ -94,15 +94,15 @@ namespace CelebrationDemo
             int style = ReadCakeValue(session.Cake != null ? session.Cake.FruitStyles : null, Spec.Index);
             // One interaction target represents a small three-fruit cluster.
             // Keep the target and state slot singular, while applying the
-            // same visibility and style to every authored FruitDecoration
-            // child (FruitDecoration, FruitDecoration 2, FruitDecoration 3).
+            // same visibility and style to every authored fruit/state slot.
             var children = GetComponentsInChildren<Transform>(true);
             Color color = FruitColor(style);
             for (int i = 0; i < children.Length; i++)
             {
                 var decoration = children[i];
-                if (decoration == transform || !decoration.name.StartsWith("FruitDecoration"))
-                    continue;
+                bool isFruitSlot = decoration != transform && decoration.name.StartsWith("FruitDecoration");
+                bool isStateSlot = decoration != transform && decoration.name.StartsWith("StateVisual");
+                if (!isFruitSlot && !isStateSlot) continue;
 
                 decoration.gameObject.SetActive(style > 0);
                 SetColor(decoration, color);

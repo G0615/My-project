@@ -450,11 +450,11 @@ namespace CelebrationDemo
                 new Vector3(-12f, 0.65f, -6f), "打发奶油", true, m);
             targets[cursor++] = AddChopsticksTarget(parent, m);
 
-            CreateZoneSign(parent, "Donation Zone Sign", new Vector3(-5f, 0f, 12.5f), "捐赠区", m);
-            CreateZoneSign(parent, "Processing Zone Sign", new Vector3(-6f, 0f, 6.4f), "加工区", m);
-            CreateZoneSign(parent, "Finished Zone Sign", new Vector3(9f, 0f, -7.8f), "成品区", m);
-            CreateZoneSign(parent, "Trading Zone Sign", new Vector3(11f, 0f, 11.2f), "交易区", m);
-            CreateZoneSign(parent, "Celebration Sign", new Vector3(15f, 0f, 1.5f), "庆典开始", m);
+            CreateZoneSign(parent, "Donation Zone Sign", new Vector3(-14f, 0f, 2.5f), "捐赠区", m);
+            CreateZoneSign(parent, "Processing Zone Sign", new Vector3(-14f, 0f, -1.5f), "加工区", m);
+            CreateZoneSign(parent, "Finished Zone Sign", new Vector3(-14f, 0f, -6f), "成品区", m);
+            CreateZoneSign(parent, "Trading Zone Sign", new Vector3(-16f, 0f, 6.5f), "交易区", m);
+            CreateZoneSign(parent, "Celebration Sign", new Vector3(16f, 0f, 6.5f), "庆典开始", m);
 
             // Cake targets alternate fruit and cream around the six sectors.
             // Keep the interaction roots just beyond the cake footprint so a
@@ -584,15 +584,15 @@ namespace CelebrationDemo
                 if (sector != null) target.CakeSectorVisual = sector.gameObject;
             }
             // The interaction root sits just outside the cake so six F zones
-            // remain separated. Pull each visual half a metre inward to the
-            // cake edge and lift it onto the top tier.
+            // remain separated. Visuals are pulled well inside the outer rim,
+            // while the single TargetMarker is authored on the cake surface.
             Vector3 inward = new Vector3(-position.x, 0f, -(position.z - 2.4f));
-            if (inward.sqrMagnitude > 0.001f) inward = inward.normalized * .45f;
+            if (inward.sqrMagnitude > 0.001f) inward = inward.normalized * 1.45f;
             Vector3 attached = inward + Vector3.up * .42f;
+            var marker = root.Find("TargetMarker");
+            if (marker != null) marker.localPosition = attached;
             if (fruit)
             {
-                CreateVisual("StateVisual", PrimitiveType.Cylinder, root, attached,
-                    new Vector3(.74f, .05f, .74f), m.DarkWood, false);
                 Vector3[] fruitOffsets =
                 {
                     new Vector3(-.18f, 0f, -.12f),
@@ -601,6 +601,10 @@ namespace CelebrationDemo
                 };
                 for (int i = 0; i < fruitOffsets.Length; i++)
                 {
+                    string stateName = i == 0 ? "StateVisual" : "StateVisual " + (i + 1);
+                    var state = CreateVisual(stateName, PrimitiveType.Cylinder, root,
+                        attached + fruitOffsets[i], new Vector3(.42f, .05f, .42f), m.DarkWood, false);
+                    state.SetActive(false);
                     string fruitName = i == 0 ? "FruitDecoration" : "FruitDecoration " + (i + 1);
                     var decoration = CreateVisual(fruitName, PrimitiveType.Sphere, root,
                         attached + Vector3.up * .10f + fruitOffsets[i],
