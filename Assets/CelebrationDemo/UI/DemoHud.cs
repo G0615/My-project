@@ -575,7 +575,7 @@ namespace CelebrationDemo
                 // A running station owns its progress presentation. Keep it
                 // visible even when the active actor switches or walks away;
                 // only the F prompt follows the current target selection.
-                var showProgress = station != null && station.IsRunning;
+                var showProgress = IsStationTargetOwner(target, station);
                 // The prompt itself is a fixed screen-space element. The
                 // world label root is reserved for the station progress bar.
                 label.root.SetActive(showProgress);
@@ -675,6 +675,14 @@ namespace CelebrationDemo
         static void HideStationWorldProgress(WorldLabel label)
         {
             if (label != null && label.progressRoot != null) label.progressRoot.SetActive(false);
+        }
+
+        static bool IsStationTargetOwner(TargetView target, StationState station)
+        {
+            if (target == null || target.Spec == null || station == null || !station.IsRunning)
+                return false;
+            string owner = string.IsNullOrEmpty(station.ActiveTargetId) ? station.Id : station.ActiveTargetId;
+            return string.Equals(target.Spec.Id, owner, StringComparison.Ordinal);
         }
 
         static void RefreshStationWorldProgress(WorldLabel label, StationState station)
@@ -948,7 +956,7 @@ namespace CelebrationDemo
                         ? runtime.Session.CutStation
                         : pair.Key.Spec.Kind == TargetKind.WhipStation ? runtime.Session.WhipStation : null
                     : null;
-                var showProgress = station != null && station.IsRunning;
+                var showProgress = IsStationTargetOwner(pair.Key, station);
                 if (!showProgress)
                 {
                     label.root.SetActive(false);

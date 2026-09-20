@@ -33,16 +33,16 @@ namespace CelebrationDemo
             var titleObject = new GameObject("HappyBirthday");
             titleObject.transform.SetParent(transform, false);
             titleObject.transform.position = focus + Vector3.up * 5.2f + Vector3.back * .2f;
-            titleObject.transform.rotation = Quaternion.LookRotation(Vector3.back, Vector3.up);
+            titleObject.transform.rotation = Quaternion.Euler(0f, 0f, 0f);
             birthdayText = titleObject.AddComponent<TextMesh>();
-            birthdayText.text = "HappyBirthday";
+            birthdayText.text = "Happy\nBirthday";
             birthdayText.anchor = TextAnchor.MiddleCenter;
             birthdayText.alignment = TextAlignment.Center;
             birthdayText.fontSize = 64;
             birthdayText.characterSize = .12f;
             birthdayText.fontStyle = FontStyle.Bold;
             birthdayText.color = new Color(1f, .86f, .25f, 0f);
-            birthdayText.font = Font.CreateDynamicFontFromOSFont("Arial", 64);
+            birthdayText.font = Font.CreateDynamicFontFromOSFont("Microsoft YaHei UI", 64);
             if (birthdayText.font == null)
                 birthdayText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
 

@@ -154,6 +154,10 @@ namespace CelebrationDemo
     public sealed class StationState
     {
         public string Id;
+        // The scene has mirrored physical targets for each station kind. The
+        // logical batch remains shared, but presentation belongs to the target
+        // that started the current batch.
+        public string ActiveTargetId;
         public float Progress;
         public bool IsRunning;
         public int BatchId;
@@ -178,6 +182,7 @@ namespace CelebrationDemo
 
         public void Reset()
         {
+            ActiveTargetId = null;
             Progress = 0f;
             IsRunning = false;
             BatchId = 0;
@@ -629,9 +634,9 @@ namespace CelebrationDemo
                 case TargetKind.CreamPile:
                     return Eat(actorId, target, "奶油");
                 case TargetKind.CutStation:
-                    return JoinWork(actorId, CutStation, "切水果");
+                    return JoinWork(actorId, CutStation, "切水果", target.Id);
                 case TargetKind.WhipStation:
-                    return JoinWork(actorId, WhipStation, "打发奶油");
+                    return JoinWork(actorId, WhipStation, "打发奶油", target.Id);
                 case TargetKind.Chopsticks:
                     return BuyChopsticks(actorId, target);
                 case TargetKind.CakeFruit:
@@ -791,7 +796,8 @@ namespace CelebrationDemo
         public ActionOutcome JoinWork(int actorId, string stationId, double now)
         {
             if (now > Now) Advance(now);
-            return JoinWork(actorId, stationId == "whip" ? WhipStation : CutStation, stationId == "whip" ? "打发奶油" : "切水果");
+            return JoinWork(actorId, stationId == "whip" ? WhipStation : CutStation,
+                stationId == "whip" ? "打发奶油" : "切水果", stationId);
         }
 
         public ActionOutcome AdvanceStation(string stationId, double now)
@@ -809,7 +815,7 @@ namespace CelebrationDemo
             return Success(0, "批次完成");
         }
 
-        ActionOutcome JoinWork(int actorId, StationState station, string action)
+        ActionOutcome JoinWork(int actorId, StationState station, string action, string targetId)
         {
             var actor = GetActor(actorId);
             if (actor == null) return Fail(actorId, "无效角色");
@@ -820,6 +826,7 @@ namespace CelebrationDemo
             if (!station.IsRunning)
             {
                 station.BatchId++;
+                station.ActiveTargetId = string.IsNullOrEmpty(targetId) ? station.Id : targetId;
                 station.Progress = 0f;
                 station.IsRunning = true;
                 station.HasCompleted = false;

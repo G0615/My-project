@@ -134,11 +134,20 @@ namespace CelebrationDemo
             HideLegacyStationVisuals();
 
             var tool = transform.Find("Tool");
-            if (tool != null && station.IsRunning)
+            if (tool != null && station.IsRunning && IsStationVisualOwner(station))
             {
                 toolAngle += Time.deltaTime * (whisk ? 420f : 250f);
                 tool.localRotation = Quaternion.Euler(0f, toolAngle, whisk ? 18f : 0f);
             }
+        }
+
+        bool IsStationVisualOwner(StationState station)
+        {
+            if (Spec == null || station == null || !station.IsRunning) return false;
+            // Older callers may not set the target ID. In that case the
+            // canonical station target owns the presentation.
+            string owner = string.IsNullOrEmpty(station.ActiveTargetId) ? station.Id : station.ActiveTargetId;
+            return string.Equals(Spec.Id, owner, System.StringComparison.Ordinal);
         }
 
         void HideLegacyStationVisuals()
