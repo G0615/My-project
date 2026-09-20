@@ -19,7 +19,7 @@ namespace CelebrationDemo
         const string ScenePath = "Assets/Scenes/CelebrationPrototype.unity";
         const string GeneratedRootName = "CelebrationPrototypeGenerated";
         const string MarkerName = "HappyBirthday Scene Template V1";
-        const string FontPath = "Assets/ThirdParty/kenney_ui-pack/Font/Kenney Future.ttf";
+        const string FontPath = "Assets/Fonts/SourceHanSans/SourceHanSansCN-Regular.otf";
 
         static FireworksTitleSceneMigration()
         {

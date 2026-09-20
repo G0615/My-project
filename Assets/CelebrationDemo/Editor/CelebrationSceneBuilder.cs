@@ -17,7 +17,7 @@ namespace CelebrationDemo
         const string ScenePath = "Assets/Scenes/CelebrationPrototype.unity";
         const string GeneratedRootName = "CelebrationPrototypeGenerated";
         const string MaterialFolder = "Assets/CelebrationDemo/World/GeneratedMaterials";
-        const string SignFontPath = "Assets/ThirdParty/kenney_ui-pack/Font/Kenney Future.ttf";
+        const string SignFontPath = "Assets/Fonts/SourceHanSans/SourceHanSansCN-Regular.otf";
         const float CameraPitch = 48f;
         // Keep the operation area at the same apparent scale as the original
         // prototype. The world grew outward around it; the camera should not
