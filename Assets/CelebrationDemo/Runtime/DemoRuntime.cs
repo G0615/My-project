@@ -29,9 +29,12 @@ namespace CelebrationDemo
         static readonly Vector3 CelebrationFocus = new Vector3(0f, 1.2f, 2.4f);
         static readonly Vector3[] CelebrationActorSpots =
         {
-            new Vector3(-3f, 0f, -1.5f),
-            new Vector3(0f, 0f, -1.5f),
-            new Vector3(3f, 0f, -1.5f)
+            // Stand in front of the cake during the presentation. These
+            // positions remain outside the cake collider even though the
+            // scripted ceremony movement bypasses CharacterController.
+            new Vector3(-3f, 0f, -6.8f),
+            new Vector3(0f, 0f, -6.8f),
+            new Vector3(3f, 0f, -6.8f)
         };
 
         enum CelebrationPhase

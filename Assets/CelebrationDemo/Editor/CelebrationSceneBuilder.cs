@@ -428,23 +428,26 @@ namespace CelebrationDemo
             targets[cursor++] = AddEggShopTarget(parent, "Shop Eggs Right", "shop_egg_right",
                 new Vector3(33.4f, 0f, -26.3f), "Shop Egg Rack Right", m);
 
+            // Central queue is kept in four compact rows. The authored scene
+            // mirrors this queue on the right; every central target is five
+            // units farther back than the original prototype layout.
             targets[cursor++] = AddPileTarget(parent, "Apple Pile", TargetKind.FruitPile, "apple_pile",
-                new Vector3(-11f, 0.55f, 10.5f), "苹果堆", m.Red, m);
+                new Vector3(-16f, 0.55f, 2.5f), "苹果堆", m.Red, m);
             targets[cursor++] = AddPileTarget(parent, "Banana Pile", TargetKind.BananaPile, "banana_pile",
-                new Vector3(-7f, 0.55f, 10.5f), "香蕉堆", m.Yellow, m);
+                new Vector3(-12f, 0.55f, 2.5f), "香蕉堆", m.Yellow, m);
             targets[cursor++] = AddPileTarget(parent, "Orange Pile", TargetKind.OrangePile, "orange_pile",
-                new Vector3(-3f, 0.55f, 10.5f), "橘子堆", m.Orange, m);
+                new Vector3(-16f, 0.55f, -1.5f), "橘子堆", m.Orange, m);
             targets[cursor++] = AddPileTarget(parent, "Egg Pile", TargetKind.EggPile, "egg_pile",
-                new Vector3(1f, 0.55f, 10.5f), "鸡蛋堆", m.Egg, m);
+                new Vector3(-12f, 0.55f, -1.5f), "鸡蛋堆", m.Egg, m);
             targets[cursor++] = AddPileTarget(parent, "Sliced Fruit", TargetKind.SlicedFruit, "sliced_fruit",
-                new Vector3(7f, 0.48f, -6.2f), "果切堆", m.Orange, m);
+                new Vector3(-16f, 0.48f, -11.5f), "果切堆", m.Orange, m);
             targets[cursor++] = AddPileTarget(parent, "Cream Pile", TargetKind.CreamPile, "cream_pile",
-                new Vector3(11f, 0.48f, -6.2f), "奶油堆", m.Cream, m);
+                new Vector3(-12f, 0.48f, -11.5f), "奶油堆", m.Cream, m);
 
             targets[cursor++] = AddStationTarget(parent, "Cut Station", TargetKind.CutStation, "cut",
-                new Vector3(-8f, 0.65f, 4.8f), "切水果", false, m);
+                new Vector3(-16f, 0.65f, -6f), "切水果", false, m);
             targets[cursor++] = AddStationTarget(parent, "Whip Station", TargetKind.WhipStation, "whip",
-                new Vector3(-4f, 0.65f, 4.8f), "打发奶油", true, m);
+                new Vector3(-12f, 0.65f, -6f), "打发奶油", true, m);
             targets[cursor++] = AddChopsticksTarget(parent, m);
 
             CreateZoneSign(parent, "Donation Zone Sign", new Vector3(-5f, 0f, 12.5f), "捐赠区", m);
@@ -454,7 +457,9 @@ namespace CelebrationDemo
             CreateZoneSign(parent, "Celebration Sign", new Vector3(15f, 0f, 1.5f), "庆典开始", m);
 
             // Cake targets alternate fruit and cream around the six sectors.
-            const float ringRadius = 2.25f * CakeFootprintScale;
+            // Keep the interaction roots just beyond the cake footprint so a
+            // player can reach every F point without stepping into the mesh.
+            const float ringRadius = 3.15f * CakeFootprintScale;
             for (int i = 0; i < 6; i++)
             {
                 float angle = i * Mathf.PI / 3f;
@@ -558,7 +563,7 @@ namespace CelebrationDemo
         static TargetView AddChopsticksTarget(Transform parent, MaterialSet m)
         {
             var target = AddTarget(parent, "Chopsticks", TargetKind.Chopsticks, "chopsticks", 0, 0,
-                new Vector3(11f, .65f, 8.5f), "购买限时筷子", 1.6f, m.Pink, m);
+                new Vector3(-16f, .65f, 6.5f), "购买限时筷子", 1.6f, m.Pink, m);
             CreateVisual("Cup", PrimitiveType.Cylinder, target.transform, new Vector3(0f, .45f, 0f),
                 new Vector3(.72f, .45f, .72f), m.Pink, false);
             for (int i = -1; i <= 1; i++)
@@ -670,6 +675,16 @@ namespace CelebrationDemo
             sector.transform.localPosition = origin;
             sector.GetComponent<MeshFilter>().sharedMesh = mesh;
             sector.GetComponent<MeshRenderer>().sharedMaterial = material;
+            if (name.EndsWith(" Base", System.StringComparison.Ordinal))
+            {
+                // The six base wedges form the solid cake footprint. A
+                // non-trigger mesh collider keeps actors outside the cake
+                // while preserving the separate top-sector visuals.
+                var collider = sector.AddComponent<MeshCollider>();
+                collider.sharedMesh = mesh;
+                collider.convex = false;
+                collider.isTrigger = false;
+            }
             return sector;
         }
 
@@ -686,7 +701,7 @@ namespace CelebrationDemo
         static TargetView AddCelebrationTarget(Transform parent, MaterialSet m)
         {
             var target = AddTarget(parent, "Celebration", TargetKind.Celebration, "celebration", 0, 0,
-                new Vector3(15f, .8f, 1.5f), "举办庆典 / 查看结果", 1.75f, m.Celebration, m);
+                new Vector3(16f, .8f, 6.5f), "举办庆典 / 查看结果", 1.75f, m.Celebration, m);
             var root = target.transform;
             CreateVisual("Pedestal", PrimitiveType.Cylinder, root, new Vector3(0f, .7f, 0f),
                 new Vector3(1.2f, .7f, 1.2f), m.Wood, false);
