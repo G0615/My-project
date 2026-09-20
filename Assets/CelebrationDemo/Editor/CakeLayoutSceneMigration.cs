@@ -125,11 +125,13 @@ namespace CelebrationDemo
 
                 if (target.Spec.Kind != TargetKind.CakeFruit) continue;
 
+                Vector3 radial = direction.normalized;
+                Vector3 tangent = new Vector3(-radial.z, 0f, radial.x);
                 Vector3[] offsets =
                 {
-                    new Vector3(-.18f, 0f, -.12f),
-                    new Vector3(0f, 0f, .12f),
-                    new Vector3(.18f, 0f, -.12f)
+                    -radial * 1.169f - tangent * .975f,
+                    -radial * 3.441f + tangent * .080f,
+                    -radial * 1.970f + tangent * 1.172f
                 };
                 var state = target.transform.Find("StateVisual");
                 if (state == null) continue;
@@ -146,7 +148,7 @@ namespace CelebrationDemo
                     }
                     slot.localPosition = attached + offsets[i];
                     slot.localRotation = Quaternion.identity;
-                    slot.localScale = new Vector3(.42f, .05f, .42f);
+                    slot.localScale = new Vector3(.92f, .05f, .92f);
                     slot.gameObject.SetActive(false);
                 }
 
@@ -156,6 +158,7 @@ namespace CelebrationDemo
                     var fruit = target.transform.Find(fruitName);
                     if (fruit == null) continue;
                     fruit.localPosition = attached + Vector3.up * .10f + offsets[i];
+                    fruit.localScale = new Vector3(.90f, .21f, .90f);
                 }
             }
         }

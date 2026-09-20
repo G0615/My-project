@@ -18,13 +18,6 @@ namespace CelebrationDemo
         const float CakeFootprintScale = 2.43f;
         const float CakeInteractionRadius = 2.45f * CakeFootprintScale;
 
-        static readonly Vector3[] FruitOffsets =
-        {
-            new Vector3(-.55f, 0f, -.35f),
-            new Vector3(0f, 0f, .45f),
-            new Vector3(.55f, 0f, -.35f)
-        };
-
         public static void RunForBatch()
         {
             if (!File.Exists(ScenePath))
@@ -71,22 +64,23 @@ namespace CelebrationDemo
                 if (marker != null) marker.localPosition = Vector3.up * .42f;
                 if (target.Spec.Kind != TargetKind.CakeFruit) continue;
 
-                for (int i = 0; i < FruitOffsets.Length; i++)
+                for (int i = 0; i < 3; i++)
                 {
+                    Vector3 offset = FruitOffset(sector, i);
                     string stateName = i == 0 ? "StateVisual" : "StateVisual " + (i + 1);
                     var state = target.transform.Find(stateName);
                     if (state != null)
                     {
-                        state.localPosition = Vector3.up * .42f + FruitOffsets[i];
-                        state.localScale = new Vector3(.74f, .04f, .74f);
+                        state.localPosition = Vector3.up * .42f + offset;
+                        state.localScale = new Vector3(.92f, .04f, .92f);
                     }
 
                     string fruitName = i == 0 ? "FruitDecoration" : "FruitDecoration " + (i + 1);
                     var fruit = target.transform.Find(fruitName);
                     if (fruit != null)
                     {
-                        fruit.localPosition = Vector3.up * .52f + FruitOffsets[i];
-                        fruit.localScale = new Vector3(.68f, .16f, .68f);
+                        fruit.localPosition = Vector3.up * .52f + offset;
+                        fruit.localScale = new Vector3(.90f, .21f, .90f);
                     }
                 }
             }
@@ -111,6 +105,20 @@ namespace CelebrationDemo
                 case "cake_fruit_2": return 4;
                 case "cake_cream_2": return 5;
                 default: return -1;
+            }
+        }
+
+        static Vector3 FruitOffset(int sector, int index)
+        {
+            Vector3 radial = new Vector3(
+                Mathf.Cos(sector * Mathf.PI / 3f), 0f,
+                Mathf.Sin(sector * Mathf.PI / 3f));
+            Vector3 tangent = new Vector3(-radial.z, 0f, radial.x);
+            switch (index)
+            {
+                case 0: return -radial * 1.169f - tangent * .975f;
+                case 1: return -radial * 3.441f + tangent * .080f;
+                default: return -radial * 1.970f + tangent * 1.172f;
             }
         }
     }

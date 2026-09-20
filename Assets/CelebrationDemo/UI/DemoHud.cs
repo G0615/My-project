@@ -38,7 +38,12 @@ namespace CelebrationDemo
         {
             "水果", "苹果", "香蕉", "橘子", "鸡蛋", "果切", "奶油", "筷子",
             "金币", "移速", "奖杯", "捐献次数", "切果完成次数", "打发完成次数",
-            "蛋糕挂点", "蛋糕区域"
+            "偷吃次数", "贴果切次数", "抹奶油次数", "蛋糕挂点", "蛋糕区域"
+        };
+        static readonly string[] CountLabels =
+        {
+            "捐献次数", "偷吃次数", "贴果切次数", "抹奶油次数",
+            "切果完成次数", "打发完成次数"
         };
         [SerializeField] DemoRuntime runtime;
 
@@ -1150,6 +1155,18 @@ namespace CelebrationDemo
         static string NormalizeItemBrackets(string text)
         {
             if (string.IsNullOrEmpty(text)) return text;
+
+            // Older events and a few hand-authored strings split a count label
+            // into "[贴果切]次数]" (or omit the first '[' entirely). Repair
+            // every action-count token before the generic item pass so head
+            // feedback and log rows always use one complete pair of brackets.
+            foreach (var countLabel in CountLabels)
+            {
+                var stem = countLabel.Substring(0, countLabel.Length - 2);
+                text = text.Replace("[" + stem + "]次数]", "[" + countLabel + "]");
+                text = text.Replace(stem + "]次数]", "[" + countLabel + "]");
+            }
+
             foreach (var item in ItemNames)
             {
                 var escaped = Regex.Escape(item);

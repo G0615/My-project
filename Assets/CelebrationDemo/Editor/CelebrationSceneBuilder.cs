@@ -607,22 +607,30 @@ namespace CelebrationDemo
             if (marker != null) marker.localPosition = attached;
             if (fruit)
             {
+                // Use the hand-tuned layout from the 6-8 o'clock slice and
+                // express it in radial/tangent axes. This keeps the same
+                // staggered spacing when the layout is rotated onto the other
+                // fruit slices around the cake.
+                Vector3 radial = new Vector3(
+                    Mathf.Cos(sectorIndex * Mathf.PI / 3f), 0f,
+                    Mathf.Sin(sectorIndex * Mathf.PI / 3f));
+                Vector3 tangent = new Vector3(-radial.z, 0f, radial.x);
                 Vector3[] fruitOffsets =
                 {
-                    new Vector3(-.55f, 0f, -.35f),
-                    new Vector3(0f, 0f, .45f),
-                    new Vector3(.55f, 0f, -.35f)
+                    -radial * 1.169f - tangent * .975f,
+                    -radial * 3.441f + tangent * .080f,
+                    -radial * 1.970f + tangent * 1.172f
                 };
                 for (int i = 0; i < fruitOffsets.Length; i++)
                 {
                     string stateName = i == 0 ? "StateVisual" : "StateVisual " + (i + 1);
                     var state = CreateVisual(stateName, PrimitiveType.Cylinder, root,
-                        attached + fruitOffsets[i], new Vector3(.74f, .04f, .74f), m.DarkWood, false);
+                        attached + fruitOffsets[i], new Vector3(.92f, .04f, .92f), m.DarkWood, false);
                     state.SetActive(false);
                     string fruitName = i == 0 ? "FruitDecoration" : "FruitDecoration " + (i + 1);
                     var decoration = CreateVisual(fruitName, PrimitiveType.Sphere, root,
                         attached + Vector3.up * .10f + fruitOffsets[i],
-                        new Vector3(.68f, .16f, .68f), m.Red, false);
+                        new Vector3(.90f, .21f, .90f), m.Red, false);
                     decoration.SetActive(false);
                 }
             }
