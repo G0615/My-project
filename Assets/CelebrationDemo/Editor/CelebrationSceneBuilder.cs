@@ -473,9 +473,9 @@ namespace CelebrationDemo
             CreateZoneSign(parent, "Celebration Sign", new Vector3(16f, 0f, 6.5f), "庆典开始", m);
 
             // Cake targets alternate fruit and cream around the six sectors.
-            // Keep the interaction roots just beyond the cake footprint so a
-            // player can reach every F point without stepping into the mesh.
-            const float ringRadius = 3.15f * CakeFootprintScale;
+            // Keep the interaction roots within the cake footprint; the
+            // cake collider remains the boundary that keeps actors outside.
+            const float ringRadius = 2.45f * CakeFootprintScale;
             for (int i = 0; i < 6; i++)
             {
                 float angle = i * Mathf.PI / 3f;
@@ -599,32 +599,30 @@ namespace CelebrationDemo
                 var sector = parent.Find("Cake Sector " + (sectorIndex + 1) + " Top");
                 if (sector != null) target.CakeSectorVisual = sector.gameObject;
             }
-            // The interaction root sits just outside the cake so six F zones
-            // remain separated. Visuals are pulled well inside the outer rim,
-            // while the single TargetMarker is authored on the cake surface.
-            Vector3 inward = new Vector3(-position.x, 0f, -(position.z - 2.4f));
-            if (inward.sqrMagnitude > 0.001f) inward = inward.normalized * 1.45f;
-            Vector3 attached = inward + Vector3.up * .42f;
+            // The interaction root is authored inside the cake footprint. Its
+            // solid cake collider still keeps actors outside, while the F
+            // target itself no longer creates a blocking object around the rim.
+            Vector3 attached = Vector3.up * .42f;
             var marker = root.Find("TargetMarker");
             if (marker != null) marker.localPosition = attached;
             if (fruit)
             {
                 Vector3[] fruitOffsets =
                 {
-                    new Vector3(-.18f, 0f, -.12f),
-                    new Vector3(0f, 0f, .12f),
-                    new Vector3(.18f, 0f, -.12f)
+                    new Vector3(-.55f, 0f, -.35f),
+                    new Vector3(0f, 0f, .45f),
+                    new Vector3(.55f, 0f, -.35f)
                 };
                 for (int i = 0; i < fruitOffsets.Length; i++)
                 {
                     string stateName = i == 0 ? "StateVisual" : "StateVisual " + (i + 1);
                     var state = CreateVisual(stateName, PrimitiveType.Cylinder, root,
-                        attached + fruitOffsets[i], new Vector3(.42f, .05f, .42f), m.DarkWood, false);
+                        attached + fruitOffsets[i], new Vector3(.74f, .04f, .74f), m.DarkWood, false);
                     state.SetActive(false);
                     string fruitName = i == 0 ? "FruitDecoration" : "FruitDecoration " + (i + 1);
                     var decoration = CreateVisual(fruitName, PrimitiveType.Sphere, root,
                         attached + Vector3.up * .10f + fruitOffsets[i],
-                        new Vector3(.42f, .25f, .42f), m.Red, false);
+                        new Vector3(.68f, .16f, .68f), m.Red, false);
                     decoration.SetActive(false);
                 }
             }
