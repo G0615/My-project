@@ -606,12 +606,17 @@ namespace CelebrationDemo
                 var showPrompt = target == runtime.CurrentTarget && executable;
                 // A running station owns its progress presentation. Keep it
                 // visible even when the active actor switches or walks away;
-                // only the F prompt follows the current target selection.
+                // the F prompt follows the current target selection as well.
+                // The participant currently working at the station does not
+                // need a second prompt, while another nearby actor must still
+                // see the prompt because F can join the active batch.
                 var showProgress = IsStationTargetOwner(target, station);
                 // The prompt itself is a fixed screen-space element. The
                 // world label root is reserved for the station progress bar.
                 label.root.SetActive(showProgress);
-                label.promptRoot.SetActive(showPrompt && !showProgress);
+                var activeActorIsParticipant = showProgress &&
+                    IsStationParticipant(station, runtime.ActiveActorId);
+                label.promptRoot.SetActive(showPrompt && !activeActorIsParticipant);
                 if (showProgress)
                     RefreshStationWorldProgress(label, station);
                 else
@@ -715,6 +720,12 @@ namespace CelebrationDemo
                 return false;
             string owner = string.IsNullOrEmpty(station.ActiveTargetId) ? station.Id : station.ActiveTargetId;
             return string.Equals(target.Spec.Id, owner, StringComparison.Ordinal);
+        }
+
+        static bool IsStationParticipant(StationState station, int actorId)
+        {
+            return station != null && station.IsRunning &&
+                station.ParticipantIds != null && station.ParticipantIds.Contains(actorId);
         }
 
         static void RefreshStationWorldProgress(WorldLabel label, StationState station)
